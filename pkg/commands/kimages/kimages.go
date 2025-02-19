@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -153,17 +152,18 @@ func (c *cfg) Run(cmd *cobra.Command, args []string) error {
 	if c.EnforceRegistry != "" {
 		violations := []ParsedImage{}
 
-		vmsg := ""
 		for _, image := range images {
 			if image.Registry != c.EnforceRegistry {
 				violations = append(violations, image)
-				diff := cmp.Diff(image.Registry, c.EnforceRegistry)
-				vmsg += fmt.Sprintf("%s\n", diff)
 			}
 		}
 
 		if len(violations) > 0 {
-			return fmt.Errorf("found %d images that do not belong to the enforced registry %q:\n%s", len(violations), c.EnforceRegistry, vmsg)
+			out, err := json.MarshalIndent(violations, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal violations: %v", err)
+			}
+			return fmt.Errorf("found %d images that do not belong to the enforced registry %q:\n%s", len(violations), c.EnforceRegistry, out)
 		}
 
 		clog.InfoContext(ctx, "No registry violations found", "enforced_registry", c.EnforceRegistry)
