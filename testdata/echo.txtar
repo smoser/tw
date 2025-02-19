@@ -1,0 +1,14 @@
+exec cat foo.txt
+stdout wompie
+
+exec echo bompie
+cmp stdout bar.txt
+
+echo custom
+stdout custom
+
+-- foo.txt --
+wompie
+
+-- bar.txt --
+bompie

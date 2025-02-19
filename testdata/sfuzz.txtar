@@ -1,0 +1,97 @@
+sfuzz --apk go-1.24
+cmp stdout sfuzz.go-1.24.golden.json
+
+sfuzz --apk ncurses
+cmp stdout sfuzz.ncurses.golden.json
+
+-- sfuzz.go-1.24.golden.json --
+[
+  {
+    "command": "/usr/bin/go",
+    "exit_code": 0,
+    "flag": "version"
+  },
+  {
+    "command": "/usr/bin/gofmt",
+    "exit_code": 0,
+    "flag": "--help"
+  },
+  {
+    "command": "/usr/bin/gofmt",
+    "exit_code": 0,
+    "flag": "-h"
+  },
+  {
+    "command": "/usr/bin/gofmt",
+    "exit_code": 0,
+    "flag": "-help"
+  }
+]
+-- sfuzz.ncurses.golden.json --
+[
+  {
+    "command": "/usr/bin/captoinfo",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/clear",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/infocmp",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/infotocap",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/reset",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/tabs",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/tic",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/toe",
+    "exit_code": 0,
+    "flag": "version"
+  },
+  {
+    "command": "/usr/bin/toe",
+    "exit_code": 0,
+    "flag": "-h"
+  },
+  {
+    "command": "/usr/bin/toe",
+    "exit_code": 0,
+    "flag": "-v"
+  },
+  {
+    "command": "/usr/bin/toe",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/tput",
+    "exit_code": 0,
+    "flag": "-V"
+  },
+  {
+    "command": "/usr/bin/tset",
+    "exit_code": 0,
+    "flag": "-V"
+  }
+]

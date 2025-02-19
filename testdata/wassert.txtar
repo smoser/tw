@@ -1,0 +1,14 @@
+wassert file -f file.yaml
+
+exec echo "hello"
+stdout hello
+cmp stdout foo.txt
+
+-- foo.txt --
+hello world
+-- file.yaml --
+files:
+  - path: foo.txt
+    exists: true
+    contains: |
+      hello
