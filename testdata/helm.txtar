@@ -1,0 +1,13 @@
+whelm cert-manager cert-manager -n cert-manager --repo https://charts.jetstack.io -f values.yaml
+
+kgrep deploy/cert-manager -n cert-manager -i 'caches populated'
+
+script post.sh
+
+-- values.yaml --
+installCRDs: true
+
+-- post.sh --
+#!/bin/sh
+
+helm ls -A

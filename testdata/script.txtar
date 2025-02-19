@@ -1,0 +1,29 @@
+# wexec is an "escape hatch"" to run arbitrary scripts defined "inline" (via txtar)
+wexec foo.sh
+
+# Assertions still work
+stdout 'hello'
+
+# Negative assertions still work
+! wexec fail.sh
+stderr 'exit status 42'
+
+# shbang is respected
+wexec shbang.sh
+stdout 'bar'
+
+-- foo.sh --
+#!/bin/sh
+
+echo "hello world"
+
+-- fail.sh --
+#!/bin/sh
+
+exit 42
+
+-- shbang.sh --
+#!/usr/bin/env bash
+
+declare -x FOO=bar
+printf "$FOO"

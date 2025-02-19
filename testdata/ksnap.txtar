@@ -1,0 +1,24 @@
+ksnap images -n cert-manager
+cmp ksnap.out.json ksnap.golden.json
+
+-- ksnap.golden.json --
+{
+  "quay.io/jetstack/cert-manager-cainjector": {
+    "context": "quay.io/jetstack/cert-manager-cainjector",
+    "identifier": "v1.17.0",
+    "container_name": "cert-manager-cainjector",
+    "pod_namespace": "cert-manager"
+  },
+  "quay.io/jetstack/cert-manager-controller": {
+    "context": "quay.io/jetstack/cert-manager-controller",
+    "identifier": "v1.17.0",
+    "container_name": "cert-manager-controller",
+    "pod_namespace": "cert-manager"
+  },
+  "quay.io/jetstack/cert-manager-webhook": {
+    "context": "quay.io/jetstack/cert-manager-webhook",
+    "identifier": "v1.17.0",
+    "container_name": "cert-manager-webhook",
+    "pod_namespace": "cert-manager"
+  }
+}
