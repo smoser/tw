@@ -12,12 +12,11 @@ import (
 	"testing"
 
 	"github.com/chainguard-dev/clog"
-	"github.com/chainguard-dev/wt/pkg/commands/echo"
 	"github.com/chainguard-dev/wt/pkg/commands/kgrep"
+	"github.com/chainguard-dev/wt/pkg/commands/kimages"
 	"github.com/chainguard-dev/wt/pkg/commands/sfuzz"
 	"github.com/chainguard-dev/wt/pkg/commands/shu"
 	"github.com/chainguard-dev/wt/pkg/commands/wassert"
-	"github.com/chainguard-dev/wt/pkg/commands/wexec"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/spf13/cobra"
 )
@@ -91,6 +90,7 @@ func commands() map[string]*cobra.Command {
 	return map[string]*cobra.Command{
 		"sfuzz":   sfuzz.Command(),
 		"kgrep":   kgrep.Command(),
+		"kimages": kimages.Command(),
 		"wassert": wassert.Command(),
 		"shu":     shu.Command(),
 	}
@@ -109,6 +109,11 @@ func TestScript(t *testing.T) {
 	// All tests spawned will share the same parent context from the test
 	ctx := t.Context()
 
+	tscmds := map[string]func(ts *testscript.TestScript, neg bool, args []string){}
+	for n, cmd := range commands() {
+		tscmds[n] = RegisterCmd(ctx, cmd)
+	}
+
 	testscript.Run(t, testscript.Params{
 		Files:         files,
 		Dir:           *dir,
@@ -116,13 +121,7 @@ func TestScript(t *testing.T) {
 		Setup: func(e *testscript.Env) error {
 			return os.Chdir(e.WorkDir)
 		},
-		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
-			"echo":    RegisterCmd(ctx, echo.Command()),
-			"sfuzz":   RegisterCmd(ctx, sfuzz.Command()),
-			"kgrep":   RegisterCmd(ctx, kgrep.Command()),
-			"wassert": RegisterCmd(ctx, wassert.Command()),
-			"wexec":   RegisterCmd(ctx, wexec.Command()),
-		},
+		Cmds: tscmds,
 	})
 }
 
