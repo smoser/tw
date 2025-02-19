@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/chainguard-dev/clog"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -18,9 +19,10 @@ import (
 )
 
 type cfg struct {
-	AllNamespaces bool
-	Namespace     string
-	Timeout       time.Duration
+	AllNamespaces   bool
+	Namespace       string
+	Timeout         time.Duration
+	EnforceRegistry string
 }
 
 func Command() *cobra.Command {
@@ -38,6 +40,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&cfg.Namespace, "namespace", "n", "default", "namespace to install the release into")
 	cmd.Flags().BoolVarP(&cfg.AllNamespaces, "all", "A", false, "search across all namespaces")
 	cmd.Flags().DurationVarP(&cfg.Timeout, "timeout", "t", time.Minute, "timeout for the operation")
+	cmd.Flags().StringVar(&cfg.EnforceRegistry, "enforce-registry", "", "enforce all discovered images belong to this registry")
 
 	return cmd
 }
@@ -146,6 +149,25 @@ func (c *cfg) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to marshal images: %v", err)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", out)
+
+	if c.EnforceRegistry != "" {
+		violations := []ParsedImage{}
+
+		vmsg := ""
+		for _, image := range images {
+			if image.Registry != c.EnforceRegistry {
+				violations = append(violations, image)
+				diff := cmp.Diff(image.Registry, c.EnforceRegistry)
+				vmsg += fmt.Sprintf("%s\n", diff)
+			}
+		}
+
+		if len(violations) > 0 {
+			return fmt.Errorf("found %d images that do not belong to the enforced registry %q:\n%s", len(violations), c.EnforceRegistry, vmsg)
+		}
+
+		clog.InfoContext(ctx, "No registry violations found", "enforced_registry", c.EnforceRegistry)
+	}
 
 	return nil
 }
