@@ -76,7 +76,7 @@ func (c *cmdConfig) Run(ctx context.Context) error {
 		expanded := os.ExpandEnv(string(raw))
 
 		// process the file and rewrite them to a temp file
-		f, err := os.CreateTemp("", "wt-helm")
+		f, err := os.CreateTemp("", "tw-helm")
 		if err != nil {
 			return fmt.Errorf("failed to create temp file: %v", err)
 		}

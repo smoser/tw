@@ -1,4 +1,4 @@
-module github.com/chainguard-dev/wt
+module github.com/chainguard-dev/tw
 
 go 1.24
 
