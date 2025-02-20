@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	"github.com/chainguard-dev/clog"
-	"github.com/chainguard-dev/wt/pkg/commands/kgrep"
-	"github.com/chainguard-dev/wt/pkg/commands/kimages"
-	"github.com/chainguard-dev/wt/pkg/commands/sfuzz"
-	"github.com/chainguard-dev/wt/pkg/commands/shu"
-	"github.com/chainguard-dev/wt/pkg/commands/wassert"
+	"github.com/chainguard-dev/tw/pkg/commands/kgrep"
+	"github.com/chainguard-dev/tw/pkg/commands/kimages"
+	"github.com/chainguard-dev/tw/pkg/commands/sfuzz"
+	"github.com/chainguard-dev/tw/pkg/commands/shu"
+	"github.com/chainguard-dev/tw/pkg/commands/wassert"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/spf13/cobra"
 )
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 
 	// If its not a multicall, then just build the regular command hierarchy
 	cmd := &cobra.Command{
-		Use:          "wt",
+		Use:          "tw",
 		SilenceUsage: true,
 	}
 
@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 			DisableFlagParsing: true,
 			Run: func(cmd *cobra.Command, args []string) {
 				// Parse test flags after removing "test" from args
-				// This allows `wt test --script foo` to work like `go test --args --script foo`
+				// This allows `tw test --script foo` to work like `go test --args --script foo`
 				os.Args = append([]string{os.Args[0]}, args...)
 				flag.Parse()
 				os.Exit(m.Run())
