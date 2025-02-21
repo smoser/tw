@@ -1,1 +1,5 @@
 **/bin
+packages/*
+melange-cache/*
+local-melange.rsa*
+melange.rsa*
