@@ -28,8 +28,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	cmds := commands()
-
 	// First check if we're being called as a multicall
 	ename := filepath.Base(os.Args[0])
 	if cmd, ok := cmds[ename]; ok {
@@ -86,14 +84,12 @@ func TestMain(m *testing.M) {
 	os.Exit(0)
 }
 
-func commands() map[string]*cobra.Command {
-	return map[string]*cobra.Command{
-		"sfuzz":   sfuzz.Command(),
-		"kgrep":   kgrep.Command(),
-		"kimages": kimages.Command(),
-		"wassert": wassert.Command(),
-		"shu":     shu.Command(),
-	}
+var cmds = map[string]*cobra.Command{
+	"sfuzz":   sfuzz.Command(),
+	"kgrep":   kgrep.Command(),
+	"kimages": kimages.Command(),
+	"wassert": wassert.Command(),
+	"shu":     shu.Command(),
 }
 
 func TestScript(t *testing.T) {
@@ -110,7 +106,7 @@ func TestScript(t *testing.T) {
 	ctx := t.Context()
 
 	tscmds := map[string]func(ts *testscript.TestScript, neg bool, args []string){}
-	for n, cmd := range commands() {
+	for n, cmd := range cmds {
 		tscmds[n] = RegisterCmd(ctx, cmd)
 	}
 
