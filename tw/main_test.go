@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -27,73 +25,16 @@ var (
 	update = flag.Bool("update", false, "update relevant golden files")
 )
 
-func TestMain(m *testing.M) {
-	cmds := commands()
-
-	// First check if we're being called as a multicall
-	ename := filepath.Base(os.Args[0])
-	if cmd, ok := cmds[ename]; ok {
-		if err := cmd.Execute(); err != nil {
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
-	// If its not a multicall, then just build the regular command hierarchy
-	cmd := &cobra.Command{
-		Use:          "tw",
-		SilenceUsage: true,
-	}
-
-	for _, c := range cmds {
-		cmd.AddCommand(c)
-	}
-
-	// Add the special test subcommand
-	cmd.AddCommand(
-		&cobra.Command{
-			Use:                "test",
-			DisableFlagParsing: true,
-			Run: func(cmd *cobra.Command, args []string) {
-				// Parse test flags after removing "test" from args
-				// This allows `tw test --script foo` to work like `go test --args --script foo`
-				os.Args = append([]string{os.Args[0]}, args...)
-				flag.Parse()
-				os.Exit(m.Run())
-			},
-		},
-	)
-
-	// Add a helper command for creating the multicall symlinks
-	cmd.AddCommand(
-		&cobra.Command{
-			Use:    "list-multicalls",
-			Hidden: true,
-			Run: func(cmd *cobra.Command, args []string) {
-				names := make([]string, 0)
-				for _, c := range cmds {
-					names = append(names, c.Name())
-				}
-				sort.Strings(names)
-				fmt.Fprint(cmd.OutOrStdout(), strings.Join(names, " "))
-			},
-		},
-	)
-
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-	os.Exit(0)
+var cmds = map[string]*cobra.Command{
+	"sfuzz":   sfuzz.Command(),
+	"kgrep":   kgrep.Command(),
+	"kimages": kimages.Command(),
+	"wassert": wassert.Command(),
+	"shu":     shu.Command(),
 }
 
-func commands() map[string]*cobra.Command {
-	return map[string]*cobra.Command{
-		"sfuzz":   sfuzz.Command(),
-		"kgrep":   kgrep.Command(),
-		"kimages": kimages.Command(),
-		"wassert": wassert.Command(),
-		"shu":     shu.Command(),
-	}
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
 }
 
 func TestScript(t *testing.T) {
@@ -110,7 +51,7 @@ func TestScript(t *testing.T) {
 	ctx := t.Context()
 
 	tscmds := map[string]func(ts *testscript.TestScript, neg bool, args []string){}
-	for n, cmd := range commands() {
+	for n, cmd := range cmds {
 		tscmds[n] = RegisterCmd(ctx, cmd)
 	}
 
@@ -118,10 +59,7 @@ func TestScript(t *testing.T) {
 		Files:         files,
 		Dir:           *dir,
 		UpdateScripts: *update,
-		Setup: func(e *testscript.Env) error {
-			return os.Chdir(e.WorkDir)
-		},
-		Cmds: tscmds,
+		Cmds:          tscmds,
 	})
 }
 

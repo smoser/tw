@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	chainguard.dev/apko v0.25.1
+	github.com/armon/go-radix v1.0.0
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/chainguard-dev/clog v1.6.1
 	github.com/google/go-containerregistry v0.20.3
@@ -11,6 +12,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/sync v0.11.0
+	golang.org/x/sys v0.30.0
 	helm.sh/helm/v3 v3.17.1
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
@@ -150,7 +152,6 @@ require (
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.10.0 // indirect

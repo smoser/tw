@@ -1,6 +1,6 @@
 package:
   name: tw
-  version: 0.0.3
+  version: 0.0.0
   epoch: 0
   description: Testing tools
   options:
@@ -33,6 +33,14 @@ pipeline:
   - uses: strip
 
 subpackages:
+  - name: twt
+    options:
+      no-provides: true
+    pipeline:
+      - runs: |
+          install -Dm755 tw/bin/twt ${{targets.contextdir}}/usr/bin/twt
+      - uses: strip
+
   - name: ldd-check
     options:
       no-provides: true
