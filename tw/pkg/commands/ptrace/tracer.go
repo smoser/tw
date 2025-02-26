@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/armon/go-radix"
+	"github.com/chainguard-dev/clog"
 	"golang.org/x/sys/unix"
 )
 
@@ -79,12 +80,11 @@ type FSActivityInfo struct {
 
 // TracerOpts configures the tracer
 type TracerOpts struct {
-	Args        []string       // Command and arguments to trace
-	ShowDetails bool           // Whether to show detailed output
-	Filter      []string       // Syscalls to filter (if empty, trace all)
-	Stdout      io.Writer      // Standard output destination
-	Stderr      io.Writer      // Standard error destination
-	SignalCh    chan os.Signal // Channel for receiving external signals
+	Args     []string       // Command and arguments to trace
+	Filter   []string       // Syscalls to filter (if empty, trace all)
+	Stdout   io.Writer      // Standard output destination
+	Stderr   io.Writer      // Standard error destination
+	SignalCh chan os.Signal // Channel for receiving external signals
 }
 
 // SyscallHandler defines interface for handling different types of syscalls
@@ -203,7 +203,7 @@ func (t *Tracer) forwardSignals(ctx context.Context) {
 				// Use syscall.Kill directly with the process group
 				// because tracee's status is already captured by ptrace
 				if err := syscall.Kill(t.cmd.Process.Pid, ss); err != nil {
-					fmt.Fprintf(t.stderr, "Failed to forward signal %v: %v\n", ss, err)
+					clog.ErrorContextf(ctx, "failed to forward signal %v: %v", ss, err)
 				}
 			}
 		}
@@ -356,7 +356,7 @@ func (t *Tracer) trace(ctx context.Context) (int, error) {
 		case t.result <- TraceResult{ExitCode: 1, Err: fmt.Errorf("failed to start command: %w", err)}:
 		default:
 		}
-		fmt.Fprintf(t.stderr, "Failed to start command: %v\n", err)
+		clog.ErrorContextf(ctx, "failed to start command: %v", err)
 		return 1, fmt.Errorf("failed to start command: %w", err)
 	}
 
@@ -370,7 +370,7 @@ func (t *Tracer) trace(ctx context.Context) (int, error) {
 		case t.result <- TraceResult{ExitCode: 1, Err: ctx.Err()}:
 		default:
 		}
-		fmt.Fprintf(t.stderr, "Context canceled before tracing could start\n")
+		clog.ErrorContext(ctx, "context canceled before tracing could start")
 		return 1, fmt.Errorf("context canceled before tracing could start")
 	default:
 	}
@@ -384,7 +384,7 @@ func (t *Tracer) trace(ctx context.Context) (int, error) {
 		case t.result <- TraceResult{ExitCode: 1, Err: fmt.Errorf("wait4 failed: %w", err)}:
 		default:
 		}
-		fmt.Fprintf(t.stderr, "Wait4 failed: %v\n", err)
+		clog.ErrorContextf(ctx, "wait4 failed: %v", err)
 		return 1, fmt.Errorf("wait4 failed: %w", err)
 	}
 
@@ -396,7 +396,7 @@ func (t *Tracer) trace(ctx context.Context) (int, error) {
 		case t.result <- TraceResult{ExitCode: 1, Err: fmt.Errorf("failed to get process group: %w", err)}:
 		default:
 		}
-		fmt.Fprintf(t.stderr, "Failed to get process group: %v\n", err)
+		clog.ErrorContextf(ctx, "failed to get process group: %v", err)
 		return 1, fmt.Errorf("failed to get process group: %w", err)
 	}
 
@@ -408,7 +408,7 @@ func (t *Tracer) trace(ctx context.Context) (int, error) {
 		case t.result <- TraceResult{ExitCode: 1, Err: fmt.Errorf("failed to set ptrace options: %w", err)}:
 		default:
 		}
-		fmt.Fprintf(t.stderr, "Failed to set ptrace options: %v\n", err)
+		clog.ErrorContextf(ctx, "failed to set ptrace options: %v", err)
 		return 1, fmt.Errorf("failed to set ptrace options: %w", err)
 	}
 
@@ -671,7 +671,7 @@ func (t *Tracer) traceLoop(ctx context.Context) (int, error) {
 						// Special handling for main process exit
 						if wpid == t.cmd.Process.Pid {
 							// Don't delete the state yet, but mark it for special handling
-							fmt.Fprintf(t.stderr, "Main process %d is exiting\n", wpid)
+							clog.InfoContextf(ctx, "main process %d is exiting", wpid)
 
 							// If no children, we can detach and exit now
 							if len(state.children) == 0 {

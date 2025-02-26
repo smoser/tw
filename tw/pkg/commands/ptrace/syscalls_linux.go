@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/chainguard-dev/clog"
 	"golang.org/x/sys/unix"
 )
 
@@ -130,7 +131,7 @@ func getStringParam(pid int, ptr uint64) string {
 	for {
 		count, err := syscall.PtracePeekData(pid, uintptr(ptr), out[:])
 		if err != nil && err != syscall.EIO {
-			fmt.Fprintf(os.Stderr, "Error reading string from pid %d at %x: %v\n", pid, ptr, err)
+			clog.Errorf("Error reading string from pid %d at %x: %v", pid, ptr, err)
 			return ""
 		}
 

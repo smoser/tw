@@ -5,6 +5,7 @@ package ptrace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,12 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 )
 
 type cfg struct {
 	filterSyscall string
-	showDetails   bool
+	output        string
 }
 
 func Command() *cobra.Command {
@@ -38,7 +40,7 @@ This tool shows file operations, network activity, and process execution in real
 	}
 
 	cmd.Flags().StringVar(&cfg.filterSyscall, "filter", "", "Only show syscalls matching this filter (comma-separated list)")
-	cmd.Flags().BoolVar(&cfg.showDetails, "details", false, "Show detailed syscall information")
+	cmd.Flags().StringVarP(&cfg.output, "output", "o", "text", "Output format (text, json)")
 
 	return cmd
 }
@@ -77,36 +79,39 @@ func (c *cfg) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	topts := TracerOpts{
+		Args:     args,
+		Filter:   filters,
+		Stdout:   cmd.OutOrStdout(),
+		Stderr:   cmd.ErrOrStderr(),
+		SignalCh: signalCh,
+	}
+
+	if c.output == "json" {
+		topts.Stdout = cmd.ErrOrStderr()
+	}
+
 	// Create tracer instance
-	tracer, err := New(args, TracerOpts{
-		Args:        args,
-		Filter:      filters,
-		ShowDetails: c.showDetails,
-		Stdout:      os.Stdout,
-		Stderr:      os.Stderr,
-		SignalCh:    signalCh,
-	})
+	tracer, err := New(args, topts)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "Tracing command: %s\n", strings.Join(args, " "))
-	fmt.Fprintf(os.Stdout, "Press Ctrl+C to stop tracing\n\n")
+	clog.InfoContextf(ctx, "tracing command: %s", strings.Join(args, " "))
+	clog.InfoContextf(ctx, "press ctrl+c to stop tracing")
 
-	// Start the tracing process
 	if err := tracer.Start(ctx); err != nil {
 		return err
 	}
 
-	// Wait for the tracing to complete and get the report
 	report := tracer.Wait()
 
-	// Output the results
-	fmt.Fprintf(os.Stdout, "\nTracing completed in %s\n", time.Since(startTime))
-	fmt.Fprintf(os.Stdout, "Total syscalls: %d\n", report.TotalSyscalls)
+	switch c.output {
+	case "text":
+		fmt.Fprintf(os.Stdout, "\nTracing completed in %s\n", time.Since(startTime))
+		fmt.Fprintf(os.Stdout, "Total syscalls: %d\n", report.TotalSyscalls)
 
-	// Show file activity if requested
-	if c.showDetails {
+		// Show file activity if requested
 		// Show file system activity
 		if len(report.FSActivity) > 0 {
 			fmt.Fprintf(os.Stdout, "\nFile system activity:\n")
@@ -165,6 +170,38 @@ func (c *cfg) Run(cmd *cobra.Command, args []string) error {
 				fmt.Fprintf(os.Stdout, "%-20s %-10d\n", syscalls[i].name, syscalls[i].count)
 			}
 		}
+
+	case "json":
+		// Write some slimmed down version of the report, we don't want to just
+		// blindly serialize since its a ton of variable stuff
+
+		if len(report.FSActivity) > 0 {
+			paths := make([]string, 0, len(report.FSActivity))
+			for path := range report.FSActivity {
+				paths = append(paths, path)
+			}
+
+			var out struct {
+				Args          []string          `json:"args"`
+				FilesAccessed map[string]uint64 `json:"files_accessed"`
+			}
+			out.Args = tracer.args
+			out.FilesAccessed = make(map[string]uint64, len(paths))
+
+			for _, path := range paths {
+				info := report.FSActivity[path]
+				out.FilesAccessed[path] = info.OpsAll
+			}
+
+			b, err := json.MarshalIndent(out, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal report: %v", err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", b)
+		}
+
+	default:
+		return fmt.Errorf("invalid output format: %s", c.output)
 	}
 
 	return nil

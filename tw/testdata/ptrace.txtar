@@ -1,0 +1,21 @@
+ptrace -o json -- crane digest cgr.dev/chainguard/crane:latest
+cmp stdout crane-trace.golden.json
+
+-- crane-trace.golden.json --
+{
+  "args": [
+    "crane",
+    "digest",
+    "cgr.dev/chainguard/crane:latest"
+  ],
+  "files_accessed": {
+    "/etc/hosts": 2,
+    "/etc/nsswitch.conf": 1,
+    "/etc/pki/tls/certs/ca-bundle.crt": 2,
+    "/etc/resolv.conf": 1,
+    "/etc/ssl/certs/ca-bundle.crt": 1,
+    "/etc/ssl/certs/ca-certificates.crt": 2,
+    "/root/.docker/config.json": 1,
+    "/work/containers/auth.json": 1
+  }
+}
