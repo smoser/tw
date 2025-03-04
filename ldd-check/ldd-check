@@ -38,9 +38,6 @@ while [ $# -ne 0 ]; do
 done
 files=${files# }
 packages=${packages# }
-if [ -n "$packages" ] && [ -n "$files" ]; then
-    error "Cannot provide both packages and files"
-fi
 
 case "$VERBOSE" in
   true|false) :;;
@@ -52,8 +49,6 @@ esac
 tmpd=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
 trap cleanup EXIT
 
-fails=0
-passes=0
 export LANG=C
 
 vmsg() {
@@ -139,6 +134,8 @@ test_files_in() {
   done < "$tmpd/$pkg.list"
 }
 
+fails=0
+passes=0
 set -- $files
 for f in "$@"; do
   check_file "$f" true
