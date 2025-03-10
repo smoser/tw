@@ -1,8 +1,7 @@
 name: headers
 needs:
   packages:
-   - autoconf
-   - build-base
+    - header-check
 
 inputs:
   packages:
