@@ -58,6 +58,24 @@ subpackages:
             [ -f /usr/bin/ldd-check ]
             [ -x /usr/bin/ldd-check ]
 
+  - name: header-check
+    options:
+      no-provides: true
+    dependencies:
+      runtime:
+        - apk-tools
+        - autoconf
+        - build-base
+        - busybox
+    pipeline:
+      - runs: |
+          make -C header-check MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
+    test:
+      pipeline:
+        - runs: |
+            [ -f /usr/bin/header-check ]
+            [ -x /usr/bin/header-check ]
+
   - name: syspeek
     options:
       no-provides: true
