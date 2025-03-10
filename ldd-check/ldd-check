@@ -146,4 +146,5 @@ for pkg in "$@"; do
 done
 info "tested $((passes+fails)) files with ldd." \
   "$passes passes. $fails fails."
-exit $fails
+
+[ $fails -eq 0 ] || exit 1
