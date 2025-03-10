@@ -1,0 +1,183 @@
+#!/bin/sh
+# shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
+set +x
+set -f
+
+PROG="header-check"
+
+info() {
+	echo "INFO[$PROG]:" "$@"
+}
+
+error() {
+	echo "ERROR[$PROG]:" "$@"
+	exit 1
+}
+
+fail() {
+	echo "FAIL[$PROG]:" "$@"
+	FAILS=$((FAILS+1))
+}
+
+pass() {
+	echo "PASS[$PROG]:" "$@"
+	PASSES=$((PASSES+1))
+}
+
+cleanup() {
+	[ -n "$tmpd" -o -z "$tmpd" ] && return 0
+	rm -Rf "$tmpd"
+}
+
+files=""
+packages=""
+VERBOSE=false
+
+while [ $# -ne 0 ]; do
+	case "$1" in
+		--files=*)
+			files="${files} ${1#*=}"
+		;;
+		--files)
+			files="${files} $2"
+			shift
+		;;
+		--packages=*)
+			if [ "${1#*=}" = "none" ]; then
+				packages=""
+			else
+				packages="${packages} ${1#*=}"
+			fi
+		;;
+		--packages)
+			if [ "$2" = "none" ]; then
+				packages=""
+			else
+				packages="${packages} $2"
+			fi
+			shift
+		;;
+		--verbose=*)
+			VERBOSE=${1#*=}
+		;;
+		--verbose)
+			VERBOSE=$2
+			shift
+		;;
+        	--*)
+			error "Unknown argument '$1'"
+		;;
+	esac
+	shift
+done
+files=${files# }
+packages=${packages# }
+
+case "$VERBOSE" in
+	true|false)
+		:
+	;;
+	*)
+		error "--verbose must be 'true' or 'false'. found '$VERBOSE'"
+	;;
+esac
+
+[ -n "${files}${packages}" ] || error "No files or packages specified"
+
+tmpd=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
+trap cleanup EXIT
+
+test_header() {
+	local lang="$1"
+	local header="$2"
+	local rc=1
+	d=$(mktemp -d $tmpd/XXXXXXXX)
+	cd $d
+	case $lang in
+		c)
+			gen_c_ac "$header"
+		;;
+		cpp)
+			gen_cpp_ac "$header"
+		;;
+		*)
+			return 1
+		;;
+	esac
+	cat configure.ac
+	autoconf
+	./configure && rc=0 || rc=1
+	cat config.log
+	cd ..
+	rm -rf $d
+	return $rc
+}
+
+gen_c_ac() {
+	local f="$1"
+	cat >configure.ac <<EOF
+AC_INIT([example],[1.0],[example@example.com])
+AC_PREREQ(2.69)
+AC_PROG_CC
+AC_LANG(C)
+AC_CHECK_HEADER($f,[c_header_found=yes],,)
+AS_IF([test "x\$c_header_found" != "xyes"], [AC_MSG_ERROR([Unable to check header])])
+AC_OUTPUT()
+EOF
+}
+
+gen_cpp_ac() {
+	local f="$1"
+	cat >configure.ac <<EOF
+AC_INIT([example],[1.0],[example@example.com])
+AC_PREREQ(2.69)
+AC_PROG_CXX
+AC_LANG(C++)
+AC_CHECK_HEADER($f,[cxx_header_found=yes],,)
+AS_IF([test "x\$cxx_header_found" != "xyes"], [AC_MSG_ERROR([Unable to check header])])
+AC_OUTPUT()
+EOF
+}
+
+FAILS=0
+PASSES=0
+set -- $files
+for f in "$@"; do
+	success=false
+	for lang in "c" "cpp"; do
+		if test_header "$lang" "$f"; then
+			pass "header test [$f]"
+			success=true
+			break
+		else
+			success=false
+		fi
+	done
+	if [ "$success" = "false" ]; then
+		fail "Failure testing header [$f]"
+	fi
+done
+set -- $packages
+for pkg in "$@"; do
+	for f in $(apk info -qL "$pkg" | grep "^usr/include/.*\.h[p]*$" | sed -e "s:^usr/include/::"); do
+		success=false
+		for lang in "c" "cpp"; do
+			if test_header "$lang" "$f"; then
+				success=true
+				pass "Success testing header [$f]"
+				break
+			else
+				success=false
+			fi
+		done
+		if [ "$success" = "false" ]; then
+			fail "Failure testing header [$f]"
+		fi
+	done
+done
+info "tested [$((PASSES+FAILS))] files with $PROG.  [$PASSES] passes. [$FAILS] fails."
+if [ "$FAILS" = "0" ]; then
+	exit 0
+else
+	exit 1
+fi
