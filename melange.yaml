@@ -88,7 +88,7 @@ subpackages:
         - posix-libc-utils
     pipeline:
       - runs: |
-          make -C syspeek MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
+          make -C syspeek-tool MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
     test:
       pipeline:
         - runs: |
