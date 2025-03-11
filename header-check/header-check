@@ -124,7 +124,7 @@ test_header() {
 	esac
 	cat configure.ac
 	autoconf
-	./configure "$configure_opts" && rc=0 || rc=1
+	./configure $configure_opts && rc=0 || rc=1
 	cat config.log
 	cd ..
 	rm -rf $d
