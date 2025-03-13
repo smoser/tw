@@ -83,6 +83,27 @@ FAILS=0
 PASSES=0
 set -- $packages
 for pkg in "$@"; do
+	#
+	# Packages are apk-compatible package names such as:
+	#   $ gem-check --packages="ruby3.2-tzinfo ruby3.2-quantile ruby3.2-net-http-persistent"
+	#
+	# gem_dash is a reasonable "guess" at the gem name, such that
+	# package=ruby3.2-net-http-persistent becomes gem_dash=net-http-persistent
+	# and can be passed to "gem list -i ..."
+        #   $ gem list -i "^net-http-persistent$"
+	#   true
+	#
+	# gem_slash is a reasonable "guess" at the library name that can be "required" inside of some ruby code
+	#   package=ruby3.2-net-http-persistent comes gem_slash=net/http/persistent
+	#   $ ruby -e "require 'net/http/persistent'"
+	#
+	# If this script can't accurately guess the gem name to require,
+	# then the test writer can specify with:
+	#   $ gem-check --packages=ruby3.2-rubyzip --require=zip
+	#   PASS[gem-check]: Success listing gem [rubyzip]
+	#   PASS[gem-check]: Success requiring gem [zip]
+	#   INFO[gem-check]: tested [2] files with gem-check.  [2] passes. [0] fails.
+	#
 	gem_dash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//")
 	gem_slash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//" -e "s:\-:/:g")
 	if [ $(gem list -i "^$gem_dash$") = "true" ]; then
