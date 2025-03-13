@@ -70,39 +70,39 @@ exit 9
 	return 1
 }
 
-packages=""
+package=""
 require=""
-VERBOSE=false
 
 while [ $# -ne 0 ]; do
 	case "$1" in
-		--packages=*)
+		-p=*|--package=*)
 			if [ "${1#*=}" = "none" ]; then
-				packages=""
+				package=""
 			else
-				packages="${packages} ${1#*=}"
+				package="${1#*=}"
 			fi
 		;;
-		--packages)
+		-p|--package)
 			if [ "$2" = "none" ]; then
-				packages=""
+				package=""
 			else
-				packages="${packages} $2"
+				package="$2"
 			fi
 			shift
 		;;
-		--require=*)
+		-r=*|--require=*)
 			if [ "${1#*=}" = "none" ]; then
 				require=""
 			else
-				require="${require} ${1#*=}"
+				require="${1#*=}"
 			fi
 		;;
-		--verbose=*)
-			VERBOSE=${1#*=}
-		;;
-		--verbose)
-			VERBOSE=$2
+		-r|--require)
+			if [ "${1#*=}" = "none" ]; then
+				require=""
+			else
+				require="$2"
+			fi
 			shift
 		;;
         	--*)
@@ -111,65 +111,54 @@ while [ $# -ne 0 ]; do
 	esac
 	shift
 done
-packages=${packages# }
+package=${package# }
 require=${require# }
 
-case "$VERBOSE" in
-	true|false)
-		:
-	;;
-	*)
-		error "--verbose must be 'true' or 'false'. found '$VERBOSE'"
-	;;
-esac
-
-[ -n "${packages}" ] || error "No files or packages specified"
+[ -n "${package}" ] || error "No package specified"
 
 FAILS=0
 PASSES=0
-set -- $packages
-for pkg in "$@"; do
-	#
-	# Packages are apk-compatible package names such as:
-	#   $ gem-check --packages="ruby3.2-tzinfo ruby3.2-quantile ruby3.2-net-http-persistent"
-	#
-	# gem_dash is a reasonable "guess" at the gem name, such that
-	# package=ruby3.2-net-http-persistent becomes gem_dash=net-http-persistent
-	# and can be passed to "gem list -i ..."
-        #   $ gem list -i "^net-http-persistent$"
-	#   true
-	#
-	# gem_slash is a reasonable "guess" at the library name that can be "required" inside of some ruby code
-	#   package=ruby3.2-net-http-persistent comes gem_slash=net/http/persistent
-	#   $ ruby -e "require 'net/http/persistent'"
-	#
-	# If this script can't accurately guess the gem name to require,
-	# then the test writer can specify with:
-	#   $ gem-check --packages=ruby3.2-rubyzip --require=zip
-	#   PASS[gem-check]: Success listing gem [rubyzip]
-	#   PASS[gem-check]: Success requiring gem [zip]
-	#   INFO[gem-check]: tested [2] files with gem-check.  [2] passes. [0] fails.
-	#
-	gem_dash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//")
-	gem_slash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//" -e "s:\-:/:g")
-	# Test listing the gem
-	if gem_list "$gpkg" ; then
-		pass "Success listing gem [$gem_dash]"
+#
+# Packages are apk-compatible package names such as:
+#   $ gem-check --package="ruby3.2-net-http-persistent"
+#
+# gem_dash is a reasonable "guess" at the gem name, such that
+# package=ruby3.2-net-http-persistent becomes gem_dash=net-http-persistent
+# and can be passed to "gem list -i ..."
+#   $ gem list -i "^net-http-persistent$"
+#   true
+#
+# gem_slash is a reasonable "guess" at the library name that can be "required" inside of some ruby code
+#   package=ruby3.2-net-http-persistent comes gem_slash=net/http/persistent
+#   $ ruby -e "require 'net/http/persistent'"
+#
+# If this script can't accurately guess the gem name to require,
+# then the test writer can specify with:
+#   $ gem-check --package=ruby3.2-rubyzip --require=zip
+#   PASS[gem-check]: Success listing gem [rubyzip]
+#   PASS[gem-check]: Success requiring gem [zip]
+#   INFO[gem-check]: tested [2] files with gem-check.  [2] passes. [0] fails.
+#
+gem_dash=$(echo "$package" | sed -e "s/^ruby[0-9\.]\+-//")
+gem_slash=$(echo "$package" | sed -e "s/^ruby[0-9\.]\+-//" -e "s:\-:/:g")
+# Test listing the gem
+if gem_list "$gem_dash" ; then
+	pass "Success listing gem [$gem_dash]"
+else
+	fail "Failed listing gem [$gem_dash]"
+fi
+# Test requiring the gem in ruby code
+if [ -z "$require" ]; then
+	require="$gem_slash"
+fi
+for req in "$require"; do
+	if gem_require "$req" ; then
+		pass "Success requiring gem [$req]"
 	else
-		fail "Failed listing gem [$gem_dash]"
+		fail "Failed requiring gem [$req]"
 	fi
-	# Test requiring the gem in ruby code
-	if [ -z "$require" ]; then
-		require="$gem_slash"
-	fi
-	for req in "$require"; do
-		if gem_require "$req" ; then
-			pass "Success requiring gem [$req]"
-		else
-			fail "Failed requiring gem [$req]"
-		fi
-	done
 done
+
 info "tested [$((PASSES+FAILS))] files with $PROG.  [$PASSES] passes. [$FAILS] fails."
 if [ "$FAILS" = "0" ]; then
 	exit 0
