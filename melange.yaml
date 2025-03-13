@@ -19,12 +19,11 @@ environment:
       - go
 
 pipeline:
-  # NOTE: Left in for completeness
-  # - uses: git-checkout
-  #   with:
-  #     repository: https://github.com/chainguard-dev/tw
-  #     tag: v${{package.version}}
-  #     expected-commit: ...
+  - uses: git-checkout
+    with:
+      repository: https://github.com/chainguard-dev/tw
+      tag: v${{package.version}}
+      expected-commit: 52c18c170c1cdbca5ec6b53aa0bfdb0b8d376746
 
   # Make the tw binary in the main package so we don't end up with `tw-tw`
   - runs: |
@@ -67,7 +66,7 @@ subpackages:
         - busybox
     pipeline:
       - runs: |
-          make -C header-check MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
+          make -C gem-check MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
     test:
       pipeline:
         - runs: |
@@ -110,7 +109,6 @@ subpackages:
         - runs: |
             [ -f /usr/bin/syspeek ]
             [ -x /usr/bin/syspeek ]
-
 
   - name: usrmerge-tool
     options:
