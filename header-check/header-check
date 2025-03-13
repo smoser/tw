@@ -1,6 +1,5 @@
 #!/bin/sh
 # shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
-set -e
 set -f
 
 PROG="header-check"
