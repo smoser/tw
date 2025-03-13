@@ -1,0 +1,166 @@
+#!/bin/sh
+# shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
+set -f
+
+PROG="gem-check"
+
+info() {
+	echo "INFO[$PROG]:" "$@"
+}
+
+error() {
+	echo "ERROR[$PROG]:" "$@"
+	exit 1
+}
+
+fail() {
+	echo "FAIL[$PROG]:" "$@"
+	FAILS=$((FAILS+1))
+}
+
+pass() {
+	echo "PASS[$PROG]:" "$@"
+	PASSES=$((PASSES+1))
+}
+
+gem_list() {
+	local gpkg="$1" out="" rc=""
+	# 'gem list -i pkg' should echo "true" and exit 0 on "gem found"
+	# and echo "false" and exit 1 on "not found"
+	out=$(gem list -i "$gpkg")
+	rc=$?
+	case "$rc:$out" in
+		0:true)
+			return 0
+		;;
+		1:false)
+			return 1
+		;;
+	esac
+	error "'gem list -i $gpkg' had unexpected exited $rc with output '$output'"
+}
+
+gem_require() {
+	local g="$1" out="" rc=""
+	out=$(ruby -e '
+#!/usr/bin/ruby
+r = ARGV[0]
+begin
+  require r
+  print "pass"
+  exit 0
+rescue LoadError => error
+  print "require #{r}: #{error}"
+  exit 3
+end
+exit 9
+' "$g" 2>&1)
+	rc=$?
+	case "$rc:$out" in
+		0:pass)
+			return 0
+		;;
+		3:*)
+			echo "$out";
+			return 1
+		;;
+	esac
+	error "Unexpected error in ruby require test for '$r' [$rc]: $out"
+	return 1
+}
+
+package=""
+require=""
+
+while [ $# -ne 0 ]; do
+	case "$1" in
+		-p=*|--package=*)
+			if [ "${1#*=}" = "none" ]; then
+				package=""
+			else
+				package="${1#*=}"
+			fi
+		;;
+		-p|--package)
+			if [ "$2" = "none" ]; then
+				package=""
+			else
+				package="$2"
+			fi
+			shift
+		;;
+		-r=*|--require=*)
+			if [ "${1#*=}" = "none" ]; then
+				require=""
+			else
+				require="${1#*=}"
+			fi
+		;;
+		-r|--require)
+			if [ "${1#*=}" = "none" ]; then
+				require=""
+			else
+				require="$2"
+			fi
+			shift
+		;;
+        	--*)
+			error "Unknown argument '$1'"
+		;;
+	esac
+	shift
+done
+package=${package# }
+require=${require# }
+
+[ -n "${package}" ] || error "No package specified"
+
+FAILS=0
+PASSES=0
+#
+# Packages are apk-compatible package names such as:
+#   $ gem-check --package="ruby3.2-net-http-persistent"
+#
+# gem_dash is a reasonable "guess" at the gem name, such that
+# package=ruby3.2-net-http-persistent becomes gem_dash=net-http-persistent
+# and can be passed to "gem list -i ..."
+#   $ gem list -i "^net-http-persistent$"
+#   true
+#
+# gem_slash is a reasonable "guess" at the library name that can be "required" inside of some ruby code
+#   package=ruby3.2-net-http-persistent comes gem_slash=net/http/persistent
+#   $ ruby -e "require 'net/http/persistent'"
+#
+# If this script can't accurately guess the gem name to require,
+# then the test writer can specify with:
+#   $ gem-check --package=ruby3.2-rubyzip --require=zip
+#   PASS[gem-check]: Success listing gem [rubyzip]
+#   PASS[gem-check]: Success requiring gem [zip]
+#   INFO[gem-check]: tested [2] files with gem-check.  [2] passes. [0] fails.
+#
+gem_dash=$(echo "$package" | sed -e "s/^ruby[0-9\.]\+-//")
+gem_slash=$(echo "$package" | sed -e "s/^ruby[0-9\.]\+-//" -e "s:\-:/:g")
+# Test listing the gem
+if gem_list "$gem_dash" ; then
+	pass "Success listing gem [$gem_dash]"
+else
+	fail "Failed listing gem [$gem_dash]"
+fi
+# Test requiring the gem in ruby code
+if [ -z "$require" ]; then
+	require="$gem_slash"
+fi
+for req in "$require"; do
+	if gem_require "$req" ; then
+		pass "Success requiring gem [$req]"
+	else
+		fail "Failed requiring gem [$req]"
+	fi
+done
+
+info "tested [$((PASSES+FAILS))] files with $PROG.  [$PASSES] passes. [$FAILS] fails."
+if [ "$FAILS" = "0" ]; then
+	exit 0
+else
+	exit 1
+fi
