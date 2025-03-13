@@ -24,6 +24,23 @@ pass() {
 	PASSES=$((PASSES+1))
 }
 
+gem_list() {
+	local gpkg="$1" out="" rc=""
+	# 'gem list -i pkg' should echo "true" and exit 0 on "gem found"
+	# and echo "false" and exit 1 on "not found"
+	out=$(gem list -i "$gpkg")
+	rc=$?
+	case "$rc:$out" in
+		0:true)
+			return 0
+		;;
+		1:false)
+			return 1
+		;;
+	esac
+	error "'gem list -i $gpkg' had unexpected exited $rc with output '$output'"
+}
+
 packages=""
 require=""
 VERBOSE=false
@@ -106,11 +123,13 @@ for pkg in "$@"; do
 	#
 	gem_dash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//")
 	gem_slash=$(echo "$pkg" | sed -e "s/^ruby[0-9\.]\+-//" -e "s:\-:/:g")
-	if [ $(gem list -i "^$gem_dash$") = "true" ]; then
+	# Test listing the gem
+	if gem_list "$gpkg" ; then
 		pass "Success listing gem [$gem_dash]"
 	else
 		fail "Failed listing gem [$gem_dash]"
 	fi
+	# Test requiring the gem in ruby code
 	if [ -z "$require" ]; then
 		require="$gem_slash"
 	fi
