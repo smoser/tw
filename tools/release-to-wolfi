@@ -1,0 +1,93 @@
+#!/bin/sh
+# shellcheck disable=SC2015,SC2039,SC2166,SC3043
+VERBOSITY=0
+TWGIT=https://github.com/chainguard-dev/tw
+
+stderr() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || stderr "$@"; exit 1; }
+
+Usage() {
+	cat <<EOF
+Usage: ${0##*/} tag wolfi-os/
+
+   Release 'tag' to wolfi, where 'wolfi-os' is a wolfi-dev/os
+   git checkout.
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || stderr "$@"; return 1; }
+cleanup() {
+	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+debug() {
+	local level="$1"
+    shift
+	[ "${level}" -gt "${VERBOSITY}" ] && return
+	stderr "${@}"
+}
+
+main() {
+	local short_opts="hv"
+	local long_opts="help,verbose"
+	local getopt_out=""
+	getopt_out=$(getopt --name "${0##*/}" \
+		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
+		eval set -- "${getopt_out}" ||
+		{ bad_Usage; return; }
+
+	local cur="" next=""
+	while [ $# -ne 0 ]; do
+		# shellcheck disable=SC2034
+		{ cur="$1"; next="$2"; }
+		case "$cur" in
+			-h|--help) Usage ; exit 0;;
+			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+
+	[ $# -eq 2 ] || { bad_Usage "got $# args expected 2"; return 1; }
+
+	local tag="$1" gdir="$2"
+	tag=v${tag#v} # chop of 'v' in v0.0.1
+
+	if [ ! -d "$gdir" ]; then
+		fail "$gdir: not a directory"
+	fi
+	gdir=$( cd "$gdir" && pwd ) || fail "failed to cd $gdir"
+
+	TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+		fail "failed to make tempdir"
+	trap cleanup EXIT
+
+	cd "$TEMP_D" || fail
+	git clone --tags "$TWGIT" tw || fail "failed clone $TWGIT"
+	cd tw || fail "failed cd into git cloned $TWGIT"
+	cksum=$(git rev-parse "$tag") || fail "$tag did not exist"
+
+	# search only in lines 1 to 10 for version and epoch
+	sed -e "1,10s/^\([ ]\+version\): .*/\1: ${tag#v}/" \
+	    -e "1,10s,^\([ ]\+epoch\): .*,\1: 0," \
+	    -e "s,^\([ ]\+expected-commit\): .*$,\1: $cksum," \
+		"melange.yaml" > "$gdir/tw.yaml"
+	( cd "$gdir" && git add tw.yaml )
+
+	for d in pipelines/*/tw; do
+		[ -d "$gdir/$d" ] || mkdir -p "$gdir/$d" ||
+			fail "failed to mkdir in $gdir"
+		cp "$d"/* "$gdir/$d" ||
+			fail "failed cp tw/$d/* -> $gdir/$d"
+		( cd "$gdir" && git add "$d" ) ||
+			fail "failed to git add $d"
+	done
+
+	cd "$gdir" || fail "failed cd. strange"
+	git commit -m "tw - bump to $tag"
+
+	return 0
+}
+
+main "$@"
+# vi: ts=4 noexpandtab
