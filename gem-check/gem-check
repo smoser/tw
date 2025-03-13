@@ -41,6 +41,35 @@ gem_list() {
 	error "'gem list -i $gpkg' had unexpected exited $rc with output '$output'"
 }
 
+gem_require() {
+	local g="$1" out="" rc=""
+	out=$(ruby -e '
+#!/usr/bin/ruby
+r = ARGV[0]
+begin
+  require r
+  print "pass"
+  exit 0
+rescue LoadError => error
+  print "require #{r}: #{error}"
+  exit 3
+end
+exit 9
+' "$g" 2>&1)
+	rc=$?
+	case "$rc:$out" in
+		0:pass)
+			return 0
+		;;
+		3:*)
+			echo "$out";
+			return 1
+		;;
+	esac
+	error "Unexpected error in ruby require test for '$r' [$rc]: $out"
+	return 1
+}
+
 packages=""
 require=""
 VERBOSE=false
@@ -134,7 +163,7 @@ for pkg in "$@"; do
 		require="$gem_slash"
 	fi
 	for req in "$require"; do
-		if ruby -e "require '$req'"; then
+		if gem_require "$req" ; then
 			pass "Success requiring gem [$req]"
 		else
 			fail "Failed requiring gem [$req]"
