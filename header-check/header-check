@@ -195,7 +195,7 @@ for pkg in "$@"; do
 		fi
 	done
 done
-info "tested [$((PASSES+FAILS))] files with $PROG.  [$PASSES] passes. [$FAILS] fails."
+info "Tested [packages='$packages', configure-opts='$configure_opts'] with [$PROG].  [$PASSES/$((PASSES+FAILS))] passed."
 if [ "$FAILS" = "0" ]; then
 	exit 0
 else
