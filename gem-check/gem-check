@@ -150,7 +150,7 @@ fi
 if [ -z "$require" ]; then
 	require="$gem_slash"
 fi
-for req in "$require"; do
+for req in $require; do
 	if gem_require "$req" ; then
 		pass "Success requiring gem [$req]"
 	else
@@ -158,7 +158,7 @@ for req in "$require"; do
 	fi
 done
 
-info "tested [$((PASSES+FAILS))] files with $PROG.  [$PASSES] passes. [$FAILS] fails."
+info "Tested [package='$package', require='$require'] with [$PROG].  [$PASSES/$((PASSES+FAILS))] passed."
 if [ "$FAILS" = "0" ]; then
 	exit 0
 else
