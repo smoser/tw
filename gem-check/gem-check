@@ -150,7 +150,7 @@ fi
 if [ -z "$require" ]; then
 	require="$gem_slash"
 fi
-for req in "$require"; do
+for req in $require; do
 	if gem_require "$req" ; then
 		pass "Success requiring gem [$req]"
 	else
