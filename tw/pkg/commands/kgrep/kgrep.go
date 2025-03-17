@@ -55,7 +55,7 @@ func Command() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&cfg.Namespace, "namespace", "n", "", "namespace to install the release into")
+	cmd.Flags().StringVarP(&cfg.Namespace, "namespace", "n", "default", "namespace to install the release into")
 	cmd.Flags().DurationVarP(&cfg.Timeout, "timeout", "t", DefaultTimeout, "time to wait for logs to appear")
 	cmd.Flags().IntVarP(&cfg.Retry, "retry", "r", 0, "number of times to retry a failed request")
 	cmd.Flags().BoolVarP(&cfg.IgnoreCase, "ignore-case", "i", false, "toggle to ignore case for the match")
