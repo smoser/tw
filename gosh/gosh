@@ -1,0 +1,62 @@
+#!/bin/sh
+
+set -eu
+
+if [ $# -eq 0 ] && [ ! -t 0 ]; then
+  set -- /dev/stdin
+fi
+
+# script_path is always arg 1 because this is always called with the shbang
+script_path="$1"
+shift
+
+test_args=""
+use_json=false
+json_cmd=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+  --trace-file=*)
+    test_args="$test_args --trace-file=${1#*=}"
+    shift
+    ;;
+  --trace-file)
+    test_args="$test_args --trace-file=$2"
+    shift 2
+    ;;
+  --json)
+    use_json=true
+    # Check for test2json or go tool test2json
+    if command -v test2json >/dev/null 2>&1; then
+      json_cmd="test2json"
+    elif command -v go >/dev/null 2>&1; then
+      json_cmd="go tool test2json"
+    else
+      echo "Error: --json option requires either test2json or go to be installed" >&2
+      exit 1
+    fi
+    shift
+    ;;
+  *)
+    break
+    ;;
+  esac
+done
+
+# Clean up leading space if present
+test_args="${test_args# }"
+
+# Construct and execute the command
+if [ "$use_json" = true ]; then
+  if [ -n "$test_args" ]; then
+    goshr -test.v "$test_args" "$script_path" "$@" | $json_cmd
+  else
+    goshr -test.v "$script_path" "$@" | $json_cmd
+  fi
+else
+  if [ -n "$test_args" ]; then
+    exec goshr -test.v "$test_args" "$script_path" "$@"
+  else
+    exec goshr -test.v "$script_path" "$@"
+  fi
+fi
