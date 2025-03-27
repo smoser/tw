@@ -28,25 +28,19 @@ debug() {
 }
 
 main() {
-	local short_opts="hv"
-	local long_opts="help,verbose"
-	local getopt_out=""
-	getopt_out=$(getopt --name "${0##*/}" \
-		--options "${short_opts}" --long "${long_opts}" -- "$@") &&
-		eval set -- "${getopt_out}" ||
-		{ bad_Usage; return; }
+	[ "$1" = "--help" ] && { Usage; exit 0; }
 
-	local cur="" next=""
-	while [ $# -ne 0 ]; do
-		# shellcheck disable=SC2034
-		{ cur="$1"; next="$2"; }
-		case "$cur" in
-			-h|--help) Usage ; exit 0;;
-			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
-			--) shift; break;;
+	while getopts "hv" opt; do
+		case "$opt" in
+			h) Usage; exit 0;;
+			v) VERBOSITY=$((VERBOSITY+1));;
+			\?) Usage 1>&2;
+				stderr "invalid option -$OPTARG"
+				exit 1;;
 		esac
-		shift;
 	done
+
+	shift $((OPTIND -1))
 
 	[ $# -eq 2 ] || { bad_Usage "got $# args expected 2"; return 1; }
 
@@ -70,6 +64,7 @@ main() {
 	# search only in lines 1 to 10 for version and epoch
 	sed -e "1,10s/^\([ ]\+version\): .*/\1: ${tag#v}/" \
 	    -e "1,10s,^\([ ]\+epoch\): .*,\1: 0," \
+	    -e "s,#wolfi#,," \
 	    -e "s,^\([ ]\+expected-commit\): .*$,\1: $cksum," \
 		"melange.yaml" > "$gdir/tw.yaml"
 	( cd "$gdir" && git add tw.yaml )
