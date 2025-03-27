@@ -1,7 +1,8 @@
 #!/bin/sh
 # shellcheck disable=SC2015,SC2039,SC2166,SC3043
 VERBOSITY=0
-TWGIT=https://github.com/chainguard-dev/tw
+# run with 'TWGIT=$PWD' to test locally
+TWGIT=${TWGIT:-https://github.com/chainguard-dev/tw}
 
 stderr() { echo "$@" 1>&2; }
 fail() { [ $# -eq 0 ] || stderr "$@"; exit 1; }
@@ -62,7 +63,7 @@ main() {
 	cksum=$(git rev-parse "$tag") || fail "$tag did not exist"
 
 	# search only in lines 1 to 10 for version and epoch
-	sed -e "1,10s/^\([ ]\+version\): .*/\1: ${tag#v}/" \
+	sed -e "1,10s/^\([ ]\+version\): .*/\1: \"${tag#v}\"/" \
 	    -e "1,10s,^\([ ]\+epoch\): .*,\1: 0," \
 	    -e "s,#wolfi#,," \
 	    -e "s,^\([ ]\+expected-commit\): .*$,\1: $cksum," \
