@@ -19,11 +19,11 @@ environment:
       - go
 
 pipeline:
-  # - uses: git-checkout
-  #   with:
-  #     repository: https://github.com/chainguard-dev/tw
-  #     tag: v${{package.version}}
-  #     expected-commit: 52c18c170c1cdbca5ec6b53aa0bfdb0b8d376746
+  #wolfi#- uses: git-checkout
+  #wolfi#  with:
+  #wolfi#    repository: https://github.com/chainguard-dev/tw
+  #wolfi#    tag: v${{package.version}}
+  #wolfi#   expected-commit: 52c18c170c1cdbca5ec6b53aa0bfdb0b8d376746
 
   # Make the tw binary in the main package so we don't end up with `tw-tw`
   - runs: |
