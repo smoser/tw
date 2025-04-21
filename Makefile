@@ -5,7 +5,7 @@ ifeq (${ARCH}, arm64)
 	ARCH = aarch64
 endif
 
-PROJECT_DIRS := $(patsubst ./%,%,$(shell find . -maxdepth 1 -type d -not -path "." -not -path "./.*" -not -path "./tools"))
+PROJECT_DIRS := $(patsubst ./%,%,$(shell find . -maxdepth 1 -type d -not -path "." -not -path "./.*" -not -path "./tools" -not -path "./packages"))
 
 DIR_TESTS := $(addprefix test-, $(PROJECT_DIRS))
 
@@ -34,11 +34,11 @@ ${KEY}:
 	${MELANGE} keygen ${KEY}
 
 build: $(KEY)
-	$(MELANGE) build melange.yaml $(MELANGE_OPTS) $(MELANGE_BUILD_OPTS)
+	$(MELANGE) build --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_BUILD_OPTS)
 
 test-%:
 	@echo "Running test in $*"
 	@$(MAKE) -C $* test
 
 test: $(KEY) $(DIR_TESTS)
-	$(MELANGE) test melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)
+	$(MELANGE) test --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)
