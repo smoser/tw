@@ -100,6 +100,19 @@ func TestHelmCommand(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "install from local chart",
+			args: []string{"helm", "install", "my-release", "./local-chart-path"},
+			expected: &helmOpts{
+				op:        "install",
+				name:      "my-release",
+				chart:     "./local-chart-path",
+				namespace: "default",
+				repo:      "", // Empty repo indicates a local chart
+				values:    []string{},
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -152,6 +165,10 @@ func TestAttest(t *testing.T) {
 	chartVersion := "1.2.3"
 	chartPath := createTestChart(t, tempDir, chartName, chartVersion)
 
+	dirChartName := "dir-chart"
+	dirChartVersion := "2.0.0"
+	dirChartPath := createDirectoryChart(t, tempDir, dirChartName, dirChartVersion)
+
 	testCases := []struct {
 		name          string
 		chartPath     string
@@ -176,6 +193,25 @@ func TestAttest(t *testing.T) {
 				Version:    chartVersion,
 				Repository: "https://charts.example.com",
 				// Digest will be checked separately
+			},
+			expectedVals: map[string]interface{}{},
+			expectError:  false,
+		},
+		{
+			name:      "directory chart",
+			chartPath: dirChartPath,
+			hopts: &helmOpts{
+				chart:   dirChartName,
+				version: dirChartVersion,
+				repo:    "", // Empty repo indicates local chart
+				values:  []string{},
+			},
+			configValues: []string{},
+			expectedChart: InventoryChartInfo{
+				Name:       dirChartName,
+				Version:    dirChartVersion,
+				Repository: "",
+				Local:      true,
 			},
 			expectedVals: map[string]interface{}{},
 			expectError:  false,
@@ -310,13 +346,15 @@ func TestAttest(t *testing.T) {
 				t.Errorf("Chart info mismatch (-want +got):\n%s", diff)
 			}
 
-			// Ensure digest is properly formatted
-			if !strings.HasPrefix(att.Chart.Digest, "sha256:") {
-				t.Errorf("Expected digest to start with 'sha256:', got %q", att.Chart.Digest)
-			}
-			if len(att.Chart.Digest) != len("sha256:")+64 {
-				t.Errorf("Digest has wrong length. Expected %d characters (sha256: + 64 hex chars), got %d: %s",
-					len("sha256:")+64, len(att.Chart.Digest), att.Chart.Digest)
+			if !tc.expectedChart.Local {
+				// Ensure digest is properly formatted
+				if !strings.HasPrefix(att.Chart.Digest, "sha256:") {
+					t.Errorf("Expected digest to start with 'sha256:', got %q", att.Chart.Digest)
+				}
+				if len(att.Chart.Digest) != len("sha256:")+64 {
+					t.Errorf("Digest has wrong length. Expected %d characters (sha256: + 64 hex chars), got %d: %s",
+						len("sha256:")+64, len(att.Chart.Digest), att.Chart.Digest)
+				}
 			}
 
 			// Check values
@@ -382,4 +420,30 @@ description: Test chart for unit tests
 	}
 
 	return filename
+}
+
+func createDirectoryChart(t *testing.T, dir, name, version string) string {
+	t.Helper()
+
+	// Create chart directory
+	chartDir := filepath.Join(dir, name)
+	if err := os.Mkdir(chartDir, 0755); err != nil {
+		t.Fatalf("Failed to create chart directory: %v", err)
+	}
+
+	// Create Chart.yaml content
+	chartYaml := fmt.Sprintf(`
+apiVersion: v2
+name: %s
+version: %s
+description: Test chart for unit tests
+`, name, version)
+
+	// Write Chart.yaml to the directory
+	chartYamlPath := filepath.Join(chartDir, "Chart.yaml")
+	if err := os.WriteFile(chartYamlPath, []byte(chartYaml), 0644); err != nil {
+		t.Fatalf("Failed to write Chart.yaml: %v", err)
+	}
+
+	return chartDir
 }
