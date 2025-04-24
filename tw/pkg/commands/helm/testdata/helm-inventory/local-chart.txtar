@@ -1,0 +1,22 @@
+helm-inventory --path inventory.json -f foochart/values.yaml -- helm template foo foochart --namespace default -f foochart/values.yaml
+cmp inventory.json inventory.golden.json
+
+-- foochart/Chart.yaml --
+apiVersion: v2
+name: test-chart
+version: 1.0.0
+description: Test chart for helm-inventory
+
+-- foochart/templates/deployment.tpl --
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo
+spec:
+  replicas: {{ .Values.replicas }}
+
+-- foochart/values.yaml --
+replicas: 2
+
+-- inventory.golden.json --
+{"chart":{"name":"test-chart","version":"1.0.0","repository":"","local":true},"values":{"replicas":2}}

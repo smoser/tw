@@ -1,0 +1,5 @@
+helm-inventory --path inventory.json -- helm template release podinfo --repo https://stefanprodan.github.io/podinfo --version 6.3.5 --namespace default --dry-run
+cmp inventory.json inventory.golden.json
+
+-- inventory.golden.json --
+{"chart":{"name":"podinfo","version":"6.3.5","repository":"https://stefanprodan.github.io/podinfo","digest":"sha256:e54d4cc7441b7f7fe3634167439641428c2e374a5970c705125cd5167e09a688"},"values":{}}

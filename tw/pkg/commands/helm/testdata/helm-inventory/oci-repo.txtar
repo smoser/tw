@@ -1,0 +1,5 @@
+helm-inventory --path inventory.json -- helm template release oci://ghcr.io/stefanprodan/charts/podinfo --version 6.3.5 --namespace default --dry-run
+cmp inventory.json inventory.golden.json
+
+-- inventory.golden.json --
+{"chart":{"name":"podinfo","version":"6.3.5","repository":"oci://ghcr.io/stefanprodan/charts/podinfo","digest":"sha256:40f563c2c63c8246c2728ecb69d5c95b105f5f3dfe9ab17b30171298b3d7743a"},"values":{}}

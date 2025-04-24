@@ -113,6 +113,31 @@ func TestHelmCommand(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "install with OCI reference",
+			args: []string{"helm", "install", "my-release", "oci://ghcr.io/stefanprodan/charts/podinfo", "--version", "6.3.5"},
+			expected: &helmOpts{
+				op:        "install",
+				name:      "my-release",
+				chart:     "oci://ghcr.io/stefanprodan/charts/podinfo",
+				namespace: "default",
+				version:   "6.3.5",
+				values:    []string{},
+			},
+			expectError: false,
+		},
+		{
+			name: "install from chart repository with full URL specified",
+			args: []string{"helm", "install", "my-release", "https://charts.example.com/stable/podinfo-6.3.5.tgz"},
+			expected: &helmOpts{
+				op:        "install",
+				name:      "my-release",
+				chart:     "https://charts.example.com/stable/podinfo-6.3.5.tgz",
+				namespace: "default",
+				values:    []string{},
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tc := range testCases {
