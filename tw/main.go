@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chainguard-dev/clog"
 	"github.com/chainguard-dev/tw/pkg/commands/helm"
 	"github.com/chainguard-dev/tw/pkg/commands/kgrep"
 	"github.com/chainguard-dev/tw/pkg/commands/kimages"
@@ -30,6 +31,7 @@ func main() {
 	ename := filepath.Base(os.Args[0])
 	if cmd, ok := cmds[ename]; ok {
 		if err := cmd.Execute(); err != nil {
+			clog.ErrorContextf(cmd.Context(), "%s: failed to execute command: %v", ename, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -62,6 +64,7 @@ func main() {
 	)
 
 	if err := cmd.Execute(); err != nil {
+		clog.ErrorContextf(cmd.Context(), "failed to execute command: %v", err)
 		os.Exit(1)
 	}
 	os.Exit(0)
