@@ -18,9 +18,9 @@ require (
 	helm.sh/helm/v3 v3.17.3
 	k8s.io/api v0.33.0
 	k8s.io/apimachinery v0.33.0
-	k8s.io/cli-runtime v0.32.3
+	k8s.io/cli-runtime v0.33.0
 	k8s.io/client-go v0.33.0
-	k8s.io/kubectl v0.32.3
+	k8s.io/kubectl v0.33.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -105,7 +105,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.21.1 // indirect
+	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.16.0 // indirect
@@ -141,7 +141,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
-	k8s.io/component-base v0.32.3 // indirect
+	k8s.io/component-base v0.33.0 // indirect
+	k8s.io/component-helpers v0.33.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
