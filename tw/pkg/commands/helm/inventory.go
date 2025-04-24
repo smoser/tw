@@ -65,7 +65,7 @@ func Command() *cobra.Command {
 }
 
 func (c *cmdConfig) Run(ctx context.Context, hargs []string) error {
-	clog.InfoContext(ctx, "running whelm", "helm_args", hargs)
+	clog.InfoContext(ctx, "running helm-inventory", "helm_args", hargs)
 
 	hopts, err := helmCommand(hargs...)
 	if err != nil {
@@ -97,13 +97,15 @@ func (c *cmdConfig) Run(ctx context.Context, hargs []string) error {
 	}
 
 	if c.path != "" {
-		rawInv, err := json.Marshal(inv)
+		f, err := os.Create(c.path)
 		if err != nil {
-			return fmt.Errorf("failed to marshal inventory: %w", err)
+			return fmt.Errorf("failed to create inventory file: %w", err)
 		}
+		defer f.Close()
 
-		if err := os.WriteFile(c.path, rawInv, 0644); err != nil {
-			return fmt.Errorf("failed to write inventory to file: %w", err)
+		enc := json.NewEncoder(f)
+		if err := enc.Encode(inv); err != nil {
+			return fmt.Errorf("failed to write inventory: %w", err)
 		}
 	}
 
@@ -114,7 +116,9 @@ func (c *cmdConfig) Run(ctx context.Context, hargs []string) error {
 	hcmd.Stdout = os.Stdout
 	hcmd.Stderr = os.Stderr
 	hcmd.Stdin = os.Stdin
+	hcmd.Env = os.Environ()
 
+	clog.InfoContextf(ctx, "running wrapped helm command: %q", strings.Join(hcmd.Args, " "))
 	if err := hcmd.Run(); err != nil {
 		return fmt.Errorf("wrapped helm command failed: %w", err)
 	}
@@ -129,13 +133,19 @@ func pullChart(ctx context.Context, destDir string, hopts *helmOpts) (string, er
 		return hopts.chart, nil
 	}
 
+	// For OCI or standard repo charts, we need to pull
 	pullArgs := []string{
-		"pull", hopts.chart,
+		"pull",
 		"--destination", destDir,
 	}
 
-	if hopts.repo != "" {
-		pullArgs = append(pullArgs, "--repo", hopts.repo)
+	// Check if the repo is an OCI URL
+	if strings.HasPrefix(hopts.repo, "oci://") {
+		// For OCI, use the repo (which is the full OCI URL) as the chart reference
+		pullArgs = append(pullArgs, hopts.repo)
+	} else {
+		// For standard repos, use chart name and --repo flag
+		pullArgs = append(pullArgs, hopts.chart, "--repo", hopts.repo)
 	}
 
 	if hopts.version != "" {
@@ -342,7 +352,7 @@ func helmCommand(args ...string) (*helmOpts, error) {
 
 	opts.op = remainingArgs[1] // install/upgrade
 
-	if opts.op == "install" {
+	if opts.op == "install" || opts.op == "template" {
 		if opts.generateName {
 			if len(remainingArgs) < 3 {
 				return nil, fmt.Errorf("missing chart argument for install --generate-name")
@@ -364,6 +374,11 @@ func helmCommand(args ...string) (*helmOpts, error) {
 		opts.chart = remainingArgs[3]
 	} else {
 		return nil, fmt.Errorf("invalid operation: %s", opts.op)
+	}
+
+	// If we have an OCI reference as the chart, set repo to the OCI URL
+	if strings.HasPrefix(opts.chart, "oci://") {
+		opts.repo = opts.chart
 	}
 
 	return opts, nil
