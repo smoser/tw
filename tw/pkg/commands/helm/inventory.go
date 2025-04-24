@@ -40,7 +40,8 @@ type InventoryChartInfo struct {
 	Name       string `json:"name"`
 	Version    string `json:"version"`
 	Repository string `json:"repository"`
-	Digest     string `json:"digest"`
+	Digest     string `json:"digest,omitempty"`
+	Local      bool   `json:"local,omitempty"`
 }
 
 func Command() *cobra.Command {
@@ -122,6 +123,12 @@ func (c *cmdConfig) Run(ctx context.Context, hargs []string) error {
 }
 
 func pullChart(ctx context.Context, destDir string, hopts *helmOpts) (string, error) {
+	if hopts.repo == "" {
+		// this is either a local or indexed chart, so just use the chart name
+		// (local = path, name = index)
+		return hopts.chart, nil
+	}
+
 	pullArgs := []string{
 		"pull", hopts.chart,
 		"--destination", destDir,
@@ -157,55 +164,25 @@ func pullChart(ctx context.Context, destDir string, hopts *helmOpts) (string, er
 	return matches[0], nil
 }
 
-func (c *cmdConfig) inventory(_ context.Context, chartPath string, hopts *helmOpts) (*Inventory, error) {
-	f, err := os.Open(chartPath)
+func (c *cmdConfig) inventory(ctx context.Context, chartPath string, hopts *helmOpts) (*Inventory, error) {
+	fi, err := os.Stat(chartPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to stat chart path: %w", err)
 	}
-	defer f.Close()
 
-	hasher := sha256.New()
-	teer := io.TeeReader(f, hasher)
+	var meta *chart.Metadata
+	var digest string
 
-	gzr, err := gzip.NewReader(teer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-
-	meta := new(chart.Metadata)
-	found := false
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-
+	if fi.IsDir() {
+		meta, err = c.inventoryFromDirectory(ctx, chartPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read next header: %w", err)
+			return nil, fmt.Errorf("failed to read chart metadata: %w", err)
 		}
-
-		if hdr.Typeflag != tar.TypeReg {
-			continue
+	} else {
+		meta, digest, err = c.inventoryFromPackage(ctx, chartPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process chart package: %w", err)
 		}
-
-		if filepath.Base(hdr.Name) != "Chart.yaml" {
-			continue
-		}
-
-		found = true
-
-		if err := yaml.NewDecoder(tr).Decode(&meta); err != nil {
-			return nil, fmt.Errorf("failed to decode Chart.yaml: %w", err)
-		}
-
-		break
-	}
-
-	if !found {
-		return nil, fmt.Errorf("failed to find Chart.yaml")
 	}
 
 	// Include the allowlist'd values files
@@ -232,15 +209,97 @@ func (c *cmdConfig) inventory(_ context.Context, chartPath string, hopts *helmOp
 		return nil, fmt.Errorf("failed to merge values: %w", err)
 	}
 
+	chartInfo := InventoryChartInfo{
+		Name:       meta.Name,
+		Version:    meta.Version,
+		Repository: hopts.repo,
+		Local:      fi.IsDir(),
+	}
+
+	// Only set the digest if it's not a local chart
+	if !chartInfo.Local {
+		chartInfo.Digest = digest
+	}
+
 	return &Inventory{
-		Chart: InventoryChartInfo{
-			Name:       meta.Name,
-			Version:    meta.Version,
-			Repository: hopts.repo,
-			Digest:     fmt.Sprintf("sha256:%x", hasher.Sum(nil)),
-		},
+		Chart:  chartInfo,
 		Values: vals,
 	}, nil
+}
+
+// inventoryFromPackage extracts metadata and calculates digest from a packaged chart (a gzipped tarball)
+func (c *cmdConfig) inventoryFromPackage(_ context.Context, chartPath string) (*chart.Metadata, string, error) {
+	f, err := os.Open(chartPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	teer := io.TeeReader(f, hasher)
+
+	gzr, err := gzip.NewReader(teer)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	meta := new(chart.Metadata)
+	found := false
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to read next header: %w", err)
+		}
+
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+
+		if filepath.Base(hdr.Name) != "Chart.yaml" {
+			continue
+		}
+
+		found = true
+
+		if err := yaml.NewDecoder(tr).Decode(&meta); err != nil {
+			return nil, "", fmt.Errorf("failed to decode Chart.yaml: %w", err)
+		}
+
+		break
+	}
+
+	if !found {
+		return nil, "", fmt.Errorf("failed to find Chart.yaml")
+	}
+
+	digest := fmt.Sprintf("sha256:%x", hasher.Sum(nil))
+	return meta, digest, nil
+}
+
+// inventoryFromDirectory reads metadata from a chart directory
+// NOTE: "helm package" isn't reproducible, so even if we did go through the
+// hassle of packaging the repo it wouldn't mean much, so this just computes
+// some digest from the Chart.yaml with the caveat that it likely isn't usable
+func (c *cmdConfig) inventoryFromDirectory(_ context.Context, chartPath string) (*chart.Metadata, error) {
+	cmpath := filepath.Join(chartPath, "Chart.yaml")
+	raw, err := os.ReadFile(cmpath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Chart.yaml: %w", err)
+	}
+
+	meta := new(chart.Metadata)
+	if err := yaml.Unmarshal(raw, &meta); err != nil {
+		return nil, fmt.Errorf("failed to decode Chart.yaml: %w", err)
+	}
+
+	return meta, nil
 }
 
 type helmOpts struct {
