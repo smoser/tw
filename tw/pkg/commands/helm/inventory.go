@@ -125,7 +125,7 @@ func (c *cmdConfig) Run(ctx context.Context, hargs []string) error {
 func pullChart(ctx context.Context, destDir string, hopts *helmOpts) (string, error) {
 	if hopts.repo == "" {
 		// this is either a local or indexed chart, so just use the chart name
-		// (local = path, name = indexe)
+		// (local = path, name = index)
 		return hopts.chart, nil
 	}
 
