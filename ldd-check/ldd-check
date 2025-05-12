@@ -8,6 +8,30 @@ fail() { echo "FAIL[ldd-check]:" "$@"; fails=$((fails+1)); }
 pass() { echo "PASS[ldd-check]:" "$@"; passes=$((passes+1)); }
 cleanup() { [ -n "$tmpd" -o -z "$tmpd" ] && return 0; rm -Rf "$tmpd"; }
 
+show_help() {
+  cat << EOF
+Usage: ldd-check [OPTIONS]
+
+Tool to check for missing shared library dependencies.
+
+Options:
+  -h, --help                   Show this help message and exit
+  --files=PATH, --files PATH   Specify files to check
+  --packages=PKG, --packages PKG
+                              Specify packages to check
+  --extra-library-paths=PATH, --extra-library-paths PATH
+                              Additional paths to search for libraries
+  --verbose=BOOL, --verbose BOOL
+                              Enable verbose output (true or false)
+
+Examples:
+  ldd-check --files=/usr/bin/ls
+  ldd-check --packages=bash
+  ldd-check --files=/bin/sh --verbose=true
+EOF
+  exit 0
+}
+
 files=""
 packages=""
 VERBOSE=false
@@ -15,6 +39,7 @@ VERBOSE=false
 EXTRA_LIB_PATHS=""
 while [ $# -ne 0 ]; do
     case "$1" in
+        -h|--help) show_help;;
         --extra-library-paths=*)
             EXTRA_LIB_PATHS="${EXTRA_LIB_PATHS:+ ${EXTRA_LIB_PATHS}}${1#*=}";;
         --extra-library-paths)
@@ -50,7 +75,7 @@ case "$VERBOSE" in
   *) error "--verbose must be 'true' or 'false'. found '$VERBOSE'";;
 esac
 
-[ -n "${files}${packages}" ] || error "No files or packages specified"
+[ -n "${files}${packages}" ] || show_help
 
 tmpd=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
 trap cleanup EXIT
