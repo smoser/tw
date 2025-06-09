@@ -32,7 +32,7 @@ type cfg struct {
 	Patterns    []string
 	InvertMatch bool
 	Since       string
-	Tail        string
+	Tail        int
 
 	compiled    []*regexp.Regexp
 	highlighter func(string) string
@@ -60,7 +60,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&cfg.Patterns, "regexp", "e", nil, "regular expression to match")
 	cmd.Flags().BoolVarP(&cfg.InvertMatch, "invert-match", "v", false, "toggle to invert the match")
 	cmd.Flags().StringVar(&cfg.Since, "since", "", "show logs since timestamp (e.g. 2013-01-02T13:23:37Z) or relative (e.g. 42m for 42 minutes)")
-	cmd.Flags().StringVar(&cfg.Tail, "tail", "", "number of lines to show from the end of the logs")
+	cmd.Flags().IntVar(&cfg.Tail, "tail", 0, "number of lines to show from the end of the logs")
 
 	return cmd
 }
@@ -94,7 +94,7 @@ func (c *cfg) Run(cmd *cobra.Command) error {
 }
 
 func (c *cfg) retryableRun(ctx context.Context) error {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithTimeout(DefaultTimeout))
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %v", err)
 	}
@@ -104,15 +104,15 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     false,
-		Timestamps: false,
+		Timestamps: true,
 	}
 
 	if c.Since != "" {
 		options.Since = c.Since
 	}
 
-	if c.Tail != "" {
-		options.Tail = c.Tail
+	if c.Tail > 0 {
+		options.Tail = fmt.Sprintf("%d", c.Tail)
 	}
 
 	// Set a timeout for the context
@@ -149,7 +149,7 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	// Process stderr
 	scanner = bufio.NewScanner(strings.NewReader(stderrBuf.String()))
 	for scanner.Scan() {
