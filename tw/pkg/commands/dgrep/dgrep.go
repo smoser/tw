@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DefaultTimeout = 5 * time.Second
+	DefaultTimeout = 15 * time.Second
 )
 
 type cfg struct {
@@ -53,8 +53,8 @@ func Command() *cobra.Command {
 	}
 
 	cmd.Flags().DurationVarP(&cfg.Timeout, "timeout", "t", DefaultTimeout, "time to wait for logs to appear")
-	cmd.Flags().IntVarP(&cfg.Retry, "retry", "r", 0, "number of times to retry a failed request")
-	cmd.Flags().BoolVarP(&cfg.IgnoreCase, "ignore-case", "i", false, "toggle to ignore case for the match")
+	cmd.Flags().IntVarP(&cfg.Retry, "retry", "r", 3, "number of times to retry a failed request")
+	cmd.Flags().BoolVarP(&cfg.IgnoreCase, "ignore-case", "i", true, "toggle to ignore case for the match")
 	cmd.Flags().StringArrayVarP(&cfg.Patterns, "regexp", "e", nil, "regular expression to match")
 	cmd.Flags().BoolVarP(&cfg.InvertMatch, "invert-match", "v", false, "toggle to invert the match")
 
