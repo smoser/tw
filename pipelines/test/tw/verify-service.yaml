@@ -1,0 +1,23 @@
+name: verify-service
+
+needs:
+  packages:
+    - apk-tools
+    - grep
+    - systemd
+
+inputs:
+  skip-files:
+    description: Files to skip testing
+    default: ""
+  man:
+    description: Run verify without skipping doc tests
+    default: "false"
+
+pipeline:
+  - name: Verify Service files
+    runs: |
+      verify-service \
+      --dir ${{targets.contextdir}} \
+      --skip-files ${{inputs.skip-files}} \
+      --man ${{inputs.main}}
