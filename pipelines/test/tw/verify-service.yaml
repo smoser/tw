@@ -2,9 +2,7 @@ name: verify-service
 
 needs:
   packages:
-    - apk-tools
-    - grep
-    - systemd
+    - verify-service
 
 inputs:
   skip-files:
