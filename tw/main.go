@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chainguard-dev/clog"
+	"github.com/chainguard-dev/tw/pkg/commands/dgrep"
 	"github.com/chainguard-dev/tw/pkg/commands/helm"
 	"github.com/chainguard-dev/tw/pkg/commands/kgrep"
 	"github.com/chainguard-dev/tw/pkg/commands/kimages"
@@ -18,6 +19,7 @@ import (
 )
 
 var cmds = map[string]*cobra.Command{
+	"dgrep":          dgrep.Command(),
 	"sfuzz":          sfuzz.Command(),
 	"kgrep":          kgrep.Command(),
 	"kimages":        kimages.Command(),

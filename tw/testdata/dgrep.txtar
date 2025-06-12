@@ -1,0 +1,4 @@
+dgrep nginx -e 'error' -i
+dgrep my-app -e 'failed' -e 'error'
+dgrep webapp -e 'request.*timeout' -t 10s -r 2
+dgrep service -e 'warning' -v
