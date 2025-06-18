@@ -115,6 +115,7 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 	defer reader.Close()
 
 	matches := []match{}
+	matchedPatterns := make(map[int]bool)
 
 	// Use stdcopy to properly handle Docker's multiplexed stream format
 
@@ -127,12 +128,13 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 	scanner := bufio.NewScanner(strings.NewReader(stdoutBuf.String()))
 	for scanner.Scan() {
 		line := scanner.Text()
-		for _, re := range c.compiled {
+		for i, re := range c.compiled {
 			if re.MatchString(line) {
 				matches = append(matches, match{
 					Container: c.Container,
 					Text:      re.ReplaceAllStringFunc(line, c.highlighter),
 				})
+				matchedPatterns[i] = true
 				break
 			}
 		}
@@ -142,12 +144,13 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 	scanner = bufio.NewScanner(strings.NewReader(stderrBuf.String()))
 	for scanner.Scan() {
 		line := scanner.Text()
-		for _, re := range c.compiled {
+		for i, re := range c.compiled {
 			if re.MatchString(line) {
 				matches = append(matches, match{
 					Container: c.Container,
 					Text:      re.ReplaceAllStringFunc(line, c.highlighter),
 				})
+				matchedPatterns[i] = true
 				break
 			}
 		}
@@ -164,8 +167,18 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 		return fmt.Errorf("found %d unwanted matches in container %s", nmatches, c.Container)
 	}
 
-	if !c.InvertMatch && nmatches == 0 {
-		return fmt.Errorf("no match found for pattern: %v", c.Patterns)
+	if !c.InvertMatch {
+		// Check if all patterns were matched
+		if len(matchedPatterns) < len(c.compiled) {
+			// Find which patterns were not matched
+			var missingPatterns []string
+			for i, pattern := range c.Patterns {
+				if !matchedPatterns[i] {
+					missingPatterns = append(missingPatterns, pattern)
+				}
+			}
+			return fmt.Errorf("no match found for pattern(s): %v", missingPatterns)
+		}
 	}
 
 	return nil

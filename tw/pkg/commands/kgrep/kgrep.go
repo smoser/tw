@@ -124,6 +124,7 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 	}
 
 	matches := []match{}
+	matchedPatterns := make(map[int]bool)
 	for obj, req := range reqs {
 		stream, err := req.Stream(ctx)
 		if err != nil {
@@ -134,13 +135,14 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 		scanner := bufio.NewScanner(stream)
 		for scanner.Scan() {
 			line := scanner.Text()
-			for _, re := range c.compiled {
+			for i, re := range c.compiled {
 				if re.MatchString(line) {
 					matches = append(matches, match{
 						Name:      obj.Name,
 						Namespace: obj.Namespace,
 						Text:      re.ReplaceAllStringFunc(line, c.highlighter),
 					})
+					matchedPatterns[i] = true
 					break
 				}
 			}
@@ -157,8 +159,18 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 		return fmt.Errorf("found %d unwanted matches in %s", nmatches, infos[0].String())
 	}
 
-	if !c.InvertMatch && nmatches == 0 {
-		return fmt.Errorf("no match found for pattern: %v", c.Patterns)
+	if !c.InvertMatch {
+		// Check if all patterns were matched
+		if len(matchedPatterns) < len(c.compiled) {
+			// Find which patterns were not matched
+			var missingPatterns []string
+			for i, pattern := range c.Patterns {
+				if !matchedPatterns[i] {
+					missingPatterns = append(missingPatterns, pattern)
+				}
+			}
+			return fmt.Errorf("no match found for pattern(s): %v", missingPatterns)
+		}
 	}
 
 	return nil
