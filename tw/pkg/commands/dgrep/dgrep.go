@@ -151,7 +151,6 @@ func (c *cfg) retryableRun(ctx context.Context) error {
 					Text:      re.ReplaceAllStringFunc(line, c.highlighter),
 				})
 				matchedPatterns[i] = true
-				break
 			}
 		}
 	}
