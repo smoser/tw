@@ -21,6 +21,8 @@ Options:
                               Specify packages to check
   --extra-library-paths=PATH, --extra-library-paths PATH
                               Additional paths to search for libraries
+  --exclude-files=PATH, --exclude-files PATH
+                              Exclude files matching this pattern
   --verbose=BOOL, --verbose BOOL
                               Enable verbose output (true or false)
 
@@ -28,12 +30,14 @@ Examples:
   ldd-check --files=/usr/bin/ls
   ldd-check --packages=bash
   ldd-check --files=/bin/sh --verbose=true
+  ldd-check --packages=bash --exclude-files="*test*"
 EOF
   exit 0
 }
 
 files=""
 packages=""
+excludes=""
 VERBOSE=false
 
 EXTRA_LIB_PATHS=""
@@ -45,6 +49,8 @@ while [ $# -ne 0 ]; do
         --extra-library-paths)
             EXTRA_LIB_PATHS="${EXTRA_LIB_PATHS:+ ${EXTRA_LIB_PATHS}}$2";
             shift;;
+        --exclude-files=*) excludes="${excludes} ${1#*=}";;
+        --exclude-files) excludes="${excludes} $2"; shift;;
         --files=*) files="${files} ${1#*=}";;
         --files) files="${files} $2"; shift;;
         --packages=*)
@@ -69,6 +75,7 @@ while [ $# -ne 0 ]; do
 done
 files=${files# }
 packages=${packages# }
+excludes=${excludes# }
 
 case "$VERBOSE" in
   true|false) :;;
@@ -84,6 +91,20 @@ export LANG=C
 
 vmsg() {
   [ "$VERBOSE" = "false" ] || echo "$@"
+}
+
+# is_excluded(file_path)
+# returns 0 if file should be excluded, 1 if not
+is_excluded() {
+  local file="$1" pattern=""
+  [ -n "$excludes" ] || return 1
+
+  for pattern in $excludes; do
+    case "$file" in
+      $pattern) return 0;;
+    esac
+  done
+  return 1
 }
 
 # join_nonempty(delimiter, tok1, tok2, tok3, ...)
@@ -134,6 +155,11 @@ check_file() {
   local f="$1" insist_dyn="$2" rc="0"
   local outf="$tmpd/ldd.stdout" errf="$tmpd/ldd.sterr"
   local ldpath="" dirldpath=""
+
+  if is_excluded "$f"; then
+    info "$f: excluded"
+    return 0
+  fi
 
   if [ ! -e "$f" ]; then
     failormsg "$insist_dyn" "$f: did not exist"
