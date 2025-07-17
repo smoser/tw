@@ -22,7 +22,7 @@ Options:
   --extra-library-paths=PATH, --extra-library-paths PATH
                               Additional paths to search for libraries
   --exclude-files=PATH, --exclude-files PATH
-                              Exclude files matching this pattern
+                              Specify files to be excluded from the check
   --verbose=BOOL, --verbose BOOL
                               Enable verbose output (true or false)
 
@@ -30,14 +30,14 @@ Examples:
   ldd-check --files=/usr/bin/ls
   ldd-check --packages=bash
   ldd-check --files=/bin/sh --verbose=true
-  ldd-check --packages=bash --exclude-files="*test*"
+  ldd-check --packages=bash --exclude-files="/bin/ls"
 EOF
   exit 0
 }
 
 files=""
 packages=""
-excludes=""
+EXCLUDES=""
 VERBOSE=false
 
 EXTRA_LIB_PATHS=""
@@ -49,8 +49,8 @@ while [ $# -ne 0 ]; do
         --extra-library-paths)
             EXTRA_LIB_PATHS="${EXTRA_LIB_PATHS:+ ${EXTRA_LIB_PATHS}}$2";
             shift;;
-        --exclude-files=*) excludes="${excludes} ${1#*=}";;
-        --exclude-files) excludes="${excludes} $2"; shift;;
+        --exclude-files=*) EXCLUDES="${EXCLUDES} ${1#*=}";;
+        --exclude-files) EXCLUDES="${EXCLUDES} $2"; shift;;
         --files=*) files="${files} ${1#*=}";;
         --files) files="${files} $2"; shift;;
         --packages=*)
@@ -75,7 +75,7 @@ while [ $# -ne 0 ]; do
 done
 files=${files# }
 packages=${packages# }
-excludes=${excludes# }
+EXCLUDES=${EXCLUDES# }
 
 case "$VERBOSE" in
   true|false) :;;
@@ -96,13 +96,11 @@ vmsg() {
 # is_excluded(file_path)
 # returns 0 if file should be excluded, 1 if not
 is_excluded() {
-  local file="$1" pattern=""
-  [ -n "$excludes" ] || return 1
+  local file="$1" exclude=""
+  [ -n "$EXCLUDES" ] || return 1
 
-  for pattern in $excludes; do
-    case "$file" in
-      $pattern) return 0;;
-    esac
+  for exclude in $EXCLUDES; do
+    [ "${file}" = "${exclude}" ] && return 0
   done
   return 1
 }
