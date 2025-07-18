@@ -8,6 +8,7 @@ build:
 	chmod +x ldd-check
 
 test:
+	@./test.sh
 
 melange-install: build
 	echo $@
