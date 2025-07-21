@@ -61,7 +61,7 @@ func (c *cfg) Run(cmd *cobra.Command, args []string) error {
 	if c.Apk != "" {
 		clog.InfoContext(ctx, "looking for apk", "apk", c.Apk)
 
-		a, err := apk.New()
+		a, err := apk.New(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to create apk: %v", err)
 		}
