@@ -1,0 +1,20 @@
+name: symlink-check
+
+needs:
+  packages:
+    - apk-tools
+    - symlink-check
+
+inputs:
+  packages:
+    description: |
+      Check all symlinks in these installed packages.
+      Use "none" to disable the default package check.
+    required: false
+    default: "${{context.name}}"
+
+pipeline:
+  - name: "check for broken/dangling symlinks"
+    runs: |
+      symlink-check \
+          --packages="${{inputs.packages}}"
