@@ -1,0 +1,21 @@
+name: symlink-relative-only
+
+needs:
+  packages:
+    - apk-tools
+    - symlink-check
+
+inputs:
+  packages:
+    description: |
+      Check that all symlinks in this package are relative,
+      and that none would escape the root filesystem if
+      viewed from outside.
+    required: false
+    default: "${{context.name}}"
+
+pipeline:
+  - name: "verify symlinks are relative-only"
+    runs: |
+      symlink-check --relative-only \
+          --packages="${{inputs.packages}}"
