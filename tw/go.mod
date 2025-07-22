@@ -3,7 +3,7 @@ module github.com/chainguard-dev/tw
 go 1.24.5
 
 require (
-	chainguard.dev/apko v0.29.7
+	chainguard.dev/apko v0.29.9
 	github.com/armon/go-radix v1.0.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/chainguard-dev/clog v1.7.0
@@ -27,7 +27,7 @@ require (
 
 require (
 	chainguard.dev/go-grpc-kit v0.17.11 // indirect
-	chainguard.dev/sdk v0.1.36 // indirect
+	chainguard.dev/sdk v0.1.37 // indirect
 	cloud.google.com/go/auth v0.16.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
@@ -128,7 +128,7 @@ require (
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.34.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
 	google.golang.org/api v0.242.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
