@@ -23,10 +23,10 @@ func TestCheckSymlink(t *testing.T) {
 	tests := []struct {
 		name           string
 		setup          func() string
-		relativeOnly   bool
+		allowAbsolute  bool
+		allowDangling  bool
 		expectedPasses int64
 		expectedFails  int64
-		shouldSkip     bool // For relative-only mode skipping absolute symlinks
 	}{
 		{
 			name: "valid relative symlink",
@@ -37,12 +37,13 @@ func TestCheckSymlink(t *testing.T) {
 				}
 				return linkPath
 			},
-			relativeOnly:   false,
+			allowAbsolute:  false,
+			allowDangling:  false,
 			expectedPasses: 1,
 			expectedFails:  0,
 		},
 		{
-			name: "valid absolute symlink",
+			name: "absolute symlink not allowed",
 			setup: func() string {
 				linkPath := filepath.Join(tempDir, "valid_absolute")
 				if err := os.Symlink(targetFile, linkPath); err != nil {
@@ -50,12 +51,13 @@ func TestCheckSymlink(t *testing.T) {
 				}
 				return linkPath
 			},
-			relativeOnly:   false,
-			expectedPasses: 1,
-			expectedFails:  0,
+			allowAbsolute:  false,
+			allowDangling:  false,
+			expectedPasses: 0,
+			expectedFails:  1,
 		},
 		{
-			name: "absolute symlink skipped in relative-only mode",
+			name: "absolute symlink allowed",
 			setup: func() string {
 				linkPath := filepath.Join(tempDir, "absolute_skip")
 				if err := os.Symlink(targetFile, linkPath); err != nil {
@@ -63,10 +65,10 @@ func TestCheckSymlink(t *testing.T) {
 				}
 				return linkPath
 			},
-			relativeOnly:   true,
-			expectedPasses: 0,
+			allowAbsolute:  true,
+			allowDangling:  false,
+			expectedPasses: 1,
 			expectedFails:  0,
-			shouldSkip:     true,
 		},
 		{
 			name: "broken relative symlink",
@@ -77,7 +79,8 @@ func TestCheckSymlink(t *testing.T) {
 				}
 				return linkPath
 			},
-			relativeOnly:   false,
+			allowAbsolute:  false,
+			allowDangling:  false,
 			expectedPasses: 0,
 			expectedFails:  1,
 		},
@@ -85,12 +88,13 @@ func TestCheckSymlink(t *testing.T) {
 			name: "broken absolute symlink",
 			setup: func() string {
 				linkPath := filepath.Join(tempDir, "broken_absolute")
-				if err := os.Symlink("/nonexistent/target", linkPath); err != nil {
+				if err := os.Symlink(filepath.Join(tempDir, "nonexistent.txt"), linkPath); err != nil {
 					t.Fatalf("Failed to create broken symlink: %v", err)
 				}
 				return linkPath
 			},
-			relativeOnly:   false,
+			allowAbsolute:  true,
+			allowDangling:  false,
 			expectedPasses: 0,
 			expectedFails:  1,
 		},
@@ -103,7 +107,8 @@ func TestCheckSymlink(t *testing.T) {
 				}
 				return linkPath
 			},
-			relativeOnly:   false,
+			allowAbsolute:  false,
+			allowDangling:  false,
 			expectedPasses: 0,
 			expectedFails:  1,
 		},
@@ -116,7 +121,7 @@ func TestCheckSymlink(t *testing.T) {
 				FailMessages: make([]string, 0),
 			}
 
-			checkSymlink(linkPath, result, tt.relativeOnly)
+			checkSymlink(linkPath, result, tt.allowDangling, tt.allowAbsolute)
 
 			if result.Passes != tt.expectedPasses {
 				t.Errorf("Expected %d passes, got %d", tt.expectedPasses, result.Passes)
@@ -124,46 +129,6 @@ func TestCheckSymlink(t *testing.T) {
 
 			if result.Fails != tt.expectedFails {
 				t.Errorf("Expected %d fails, got %d", tt.expectedFails, result.Fails)
-			}
-		})
-	}
-}
-
-func TestCheckEscapeRoot(t *testing.T) {
-	tests := []struct {
-		name        string
-		link        string
-		target      string
-		shouldError bool
-	}{
-		{
-			name:        "normal relative path",
-			link:        "/tmp/test/link",
-			target:      "../file.txt",
-			shouldError: false,
-		},
-		{
-			name:        "path that would escape root (theoretical)",
-			link:        "/test/link",
-			target:      "../../../../../../../../../../etc/passwd",
-			shouldError: false, // This still resolves to /etc/passwd, which is under root
-		},
-		{
-			name:        "deeply nested normal path",
-			link:        "/a/b/c/d/link",
-			target:      "../../../file.txt",
-			shouldError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := checkEscapeRoot(tt.link, tt.target)
-			if tt.shouldError && err == nil {
-				t.Errorf("Expected error for escaping path, got nil")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("Expected no error, got %v", err)
 			}
 		})
 	}
@@ -211,44 +176,80 @@ func TestResultMethods(t *testing.T) {
 	})
 }
 
-func TestIsInPaths(t *testing.T) {
+func TestTargetEscapesTree(t *testing.T) {
 	tests := []struct {
 		name     string
-		filePath string
-		paths    []string
+		src      string
+		target   string
 		expected bool
 	}{
 		{
-			name:     "file in single path",
-			filePath: "/usr/bin/test",
-			paths:    []string{"/usr/bin"},
-			expected: true,
-		},
-		{
-			name:     "file not in paths",
-			filePath: "/etc/passwd",
-			paths:    []string{"/usr/bin", "/usr/lib"},
+			name:     "normal relative path within tree",
+			src:      "usr/bin/foo",
+			target:   "../lib/bar",
 			expected: false,
 		},
 		{
-			name:     "exact match",
-			filePath: "/usr/bin",
-			paths:    []string{"/usr/bin"},
+			name:     "target escapes tree with many parent dirs",
+			src:      "etc/passwd",
+			target:   "../../../../../../etc/passwd",
 			expected: true,
 		},
 		{
-			name:     "file in multiple paths",
-			filePath: "/usr/lib/test.so",
-			paths:    []string{"/usr/bin", "/usr/lib", "/usr/share"},
+			name:     "target within same directory",
+			src:      "usr/bin/foo",
+			target:   "bar",
+			expected: false,
+		},
+		{
+			name:     "target goes up one level but stays in tree",
+			src:      "usr/bin/foo",
+			target:   "../share/file",
+			expected: false,
+		},
+		{
+			name:     "target escapes with simple parent reference",
+			src:      "file",
+			target:   "../../../outside",
+			expected: true,
+		},
+		{
+			name:     "complex path that stays within tree",
+			src:      "a/b/c/d/file",
+			target:   "../../../x/y/z",
+			expected: false,
+		},
+		{
+			name:     "target exactly at root boundary",
+			src:      "a/file",
+			target:   "../..",
+			expected: true,
+		},
+		{
+			name:     "deeply nested source with escaping target",
+			src:      "a/b/c/d/e/f/file",
+			target:   "../../../../../../../..",
+			expected: true,
+		},
+		{
+			name:     "absolute",
+			src:      "foo/bar",
+			target:   "/foo/bar",
+			expected: true,
+		},
+		{
+			name:     "confusing",
+			src:      "foo/bar",
+			target:   "././../usr/./../../dest",
 			expected: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isInPaths(tt.filePath, tt.paths)
+			result := targetEscapesTree(tt.src, tt.target)
 			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
+				t.Errorf("targetEscapesTree(%q, %q) = %v, expected %v", tt.src, tt.target, result, tt.expected)
 			}
 		})
 	}

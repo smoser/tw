@@ -18,9 +18,119 @@ const progName = "symlink-check"
 
 // Config holds the command-line configuration for symlink checking
 type Config struct {
-	Paths        []string // Paths to check for symlinks
-	Packages     []string // APK packages to check for symlinks
-	RelativeOnly bool     // Only check relative symlinks, skip absolute ones
+	Paths         []string // Paths to check for symlinks
+	Packages      []string // APK packages to check for symlinks
+	AllowDangling bool
+	AllowAbsolute bool
+}
+
+func (c *Config) checkPackages(result *Result) {
+	ctx := context.Background()
+	// Create APK instance
+	a, err := apk.New(ctx)
+	if err != nil {
+		result.AddFail(fmt.Sprintf("failed to create apk client: %v", err))
+		return
+	}
+
+	pkgmap := map[string](*apk.InstalledPackage){}
+	// Get all installed packages
+	pkgs, err := a.GetInstalled()
+	if err != nil {
+		result.AddFail(fmt.Sprintf("failed to get installed packages: %v", err))
+		return
+	}
+
+	for _, pkg := range pkgs {
+		pkgmap[pkg.Name] = pkg
+	}
+
+	symlinks := make(chan string, 100)
+	var wg sync.WaitGroup
+
+	numWorkers := runtime.NumCPU()
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for link := range symlinks {
+				checkSymlink(link, result, c.AllowDangling, c.AllowAbsolute)
+			}
+		}()
+	}
+
+	for _, pkgName := range c.Packages {
+		pkg, ok := pkgmap[pkgName]
+		if !ok {
+			result.AddFail(fmt.Sprintf("package not installed: %s", pkgName))
+			continue
+		}
+
+		// Process package files
+		for _, f := range pkg.Files {
+			fullPath := "/" + f.Name
+
+			if info, err := os.Lstat(fullPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+				symlinks <- fullPath
+			}
+		}
+	}
+
+	close(symlinks)
+	wg.Wait()
+}
+
+func checkPath(path string, result *Result, allowDangling, allowAbsolute bool) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			result.AddFail(fmt.Sprintf("path does not exist: %s", path))
+		} else {
+			result.AddFail(fmt.Sprintf("cannot access path: %s (%v)", path, err))
+		}
+		return
+	}
+
+	symlinks := make(chan string, 100)
+	var wg sync.WaitGroup
+
+	numWorkers := runtime.NumCPU()
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for link := range symlinks {
+				checkSymlink(link, result, allowDangling, allowAbsolute)
+			}
+		}()
+	}
+
+	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if strings.HasPrefix(filePath, "/proc/") ||
+			strings.HasPrefix(filePath, "/sys/") ||
+			strings.HasPrefix(filePath, "/dev/") {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			symlinks <- filePath
+		}
+
+		return nil
+	})
+
+	close(symlinks)
+	wg.Wait()
+
+	if err != nil {
+		result.AddFail(fmt.Sprintf("error walking path: %s (%v)", path, err))
+	}
 }
 
 // Result tracks the outcomes of symlink checking operations
@@ -53,7 +163,7 @@ func info(msg string) {
 
 func showHelp() {
 	fmt.Printf(`Usage: %s [OPTIONS]
-
+all
 Tool to check for broken/dangling symlinks in the filesystem.
 
 Options:
@@ -79,7 +189,8 @@ func parseArgs() *Config {
 	flag.StringVar(&pathsFlag, "paths", "", "Specify paths to check (comma-separated)")
 	flag.StringVar(&packagesFlag, "packages", "", "Specify packages to check (comma-separated)")
 	flag.BoolVar(&helpFlag, "help", false, "Show help message")
-	flag.BoolVar(&config.RelativeOnly, "relative-only", false, "Only check relative symlinks, ignore absolute ones")
+	flag.BoolVar(&config.AllowDangling, "allow-dangling", false, "Allow dangling symlinks")
+	flag.BoolVar(&config.AllowAbsolute, "allow-absolute", false, "Allow absolute symlinks")
 
 	flag.Usage = showHelp
 	flag.Parse()
@@ -118,12 +229,11 @@ func main() {
 	}
 
 	if len(config.Packages) > 0 {
-		for _, pkg := range config.Packages {
-			checkPackage(pkg, config.Paths, result, config.RelativeOnly)
-		}
-	} else {
+		config.checkPackages(result)
+	}
+	if len(config.Paths) > 0 {
 		for _, path := range config.Paths {
-			checkPath(path, result, config.RelativeOnly)
+			checkPath(path, result, config.AllowDangling, config.AllowAbsolute)
 		}
 	}
 
@@ -148,70 +258,7 @@ func main() {
 
 // Core symlink checking functions
 
-func isInPaths(filePath string, paths []string) bool {
-	for _, path := range paths {
-		cleanPath := filepath.Clean(path)
-		if strings.HasPrefix(filePath, cleanPath+"/") || filePath == cleanPath {
-			return true
-		}
-	}
-	return false
-}
-
-func checkPath(path string, result *Result, relativeOnly bool) {
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			result.AddFail(fmt.Sprintf("path does not exist: %s", path))
-		} else {
-			result.AddFail(fmt.Sprintf("cannot access path: %s (%v)", path, err))
-		}
-		return
-	}
-
-	symlinks := make(chan string, 100)
-	var wg sync.WaitGroup
-
-	numWorkers := runtime.NumCPU()
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for link := range symlinks {
-				checkSymlink(link, result, relativeOnly)
-			}
-		}()
-	}
-
-	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		if strings.HasPrefix(filePath, "/proc/") ||
-			strings.HasPrefix(filePath, "/sys/") ||
-			strings.HasPrefix(filePath, "/dev/") {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if info.Mode()&os.ModeSymlink != 0 {
-			symlinks <- filePath
-		}
-
-		return nil
-	})
-
-	close(symlinks)
-	wg.Wait()
-
-	if err != nil {
-		result.AddFail(fmt.Sprintf("error walking path: %s (%v)", path, err))
-	}
-}
-
-func checkSymlink(link string, result *Result, relativeOnly bool) {
+func checkSymlink(link string, result *Result, allowDangling, allowAbsolute bool) {
 	target, err := os.Readlink(link)
 	if err != nil {
 		result.AddFail(fmt.Sprintf("cannot read symlink target: %s", link))
@@ -219,17 +266,14 @@ func checkSymlink(link string, result *Result, relativeOnly bool) {
 	}
 
 	// Handle relative-only mode
-	if relativeOnly {
-		if filepath.IsAbs(target) {
-			// Skip absolute symlinks in relative-only mode
+	if filepath.IsAbs(target) {
+		if !allowAbsolute {
+			result.AddFail(fmt.Sprintf("absolute symlink: %s -> %s", link, target))
 			return
 		}
-
-		// Check if relative target escapes root filesystem
-		if err := checkEscapeRoot(link, target); err != nil {
-			result.AddFail(fmt.Sprintf("relative symlink escapes root: %s -> %s", link, target))
-			return
-		}
+	} else if targetEscapesTree(link, target) {
+		result.AddFail(fmt.Sprintf("relative symlink escapes root: %s -> %s", link, target))
+		return
 	}
 
 	// Check if symlink target exists and is accessible
@@ -257,82 +301,30 @@ func checkSymlink(link string, result *Result, relativeOnly bool) {
 	result.AddPass(fmt.Sprintf("%s -> %s", link, target))
 }
 
-// checkEscapeRoot verifies if a relative symlink target would escape the root filesystem
-func checkEscapeRoot(link, target string) error {
-	linkDir := filepath.Dir(link)
-	resolvedPath := filepath.Join(linkDir, target)
-	cleanPath := filepath.Clean(resolvedPath)
-
-	relToRoot, err := filepath.Rel("/", cleanPath)
-	if err != nil {
-		return fmt.Errorf("error computing relative path: %v", err)
+// targetEscapesTree returns true when opening the relative symlink `src` with the
+// destination `target` would result in reading a file filesystem tree rooted at '.'
+//
+// src should not start with a slash or contain any '.' or '..' components.
+// target should be a relative symlink (not starting with a '/').
+//
+//		Examples:
+//		 -  targetEscapesTree("usr/bin/foo", "../../usr/bin/bar") -> false
+//	  -  targetEscapesTree("etc/passwd", "../../../../../../etc/passwd") -> true
+func targetEscapesTree(src, target string) bool {
+	// If target is absolute, it escapes the tree
+	if filepath.IsAbs(target) {
+		return true
 	}
 
-	if strings.HasPrefix(relToRoot, "..") {
-		return fmt.Errorf("path escapes root")
-	}
+	// Get the directory of the source symlink
+	srcDir := filepath.Dir(src)
 
-	return nil
-}
+	// Join the source directory with the target to get the absolute path
+	absTarget := filepath.Join(srcDir, target)
 
-func checkPackage(pkg string, filterPaths []string, result *Result, relativeOnly bool) {
-	ctx := context.Background()
+	// Clean the path to resolve all ".." and "." components
+	cleanTarget := filepath.Clean(absTarget)
 
-	// Create APK instance
-	a, err := apk.New(ctx)
-	if err != nil {
-		result.AddFail(fmt.Sprintf("failed to create apk client: %s (%v)", pkg, err))
-		return
-	}
-
-	// Get all installed packages
-	pkgs, err := a.GetInstalled()
-	if err != nil {
-		result.AddFail(fmt.Sprintf("failed to get installed packages: %s (%v)", pkg, err))
-		return
-	}
-
-	// Find the specific package
-	var targetPkg *apk.InstalledPackage
-	for _, p := range pkgs {
-		if p.Name == pkg {
-			targetPkg = p
-			break
-		}
-	}
-
-	if targetPkg == nil {
-		result.AddFail(fmt.Sprintf("package not installed: %s", pkg))
-		return
-	}
-
-	symlinks := make(chan string, 100)
-	var wg sync.WaitGroup
-
-	numWorkers := runtime.NumCPU()
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for link := range symlinks {
-				checkSymlink(link, result, relativeOnly)
-			}
-		}()
-	}
-
-	// Process package files
-	for _, f := range targetPkg.Files {
-		fullPath := "/" + f.Name
-
-		if len(filterPaths) > 0 && !isInPaths(fullPath, filterPaths) {
-			continue
-		}
-
-		if info, err := os.Lstat(fullPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			symlinks <- fullPath
-		}
-	}
-
-	close(symlinks)
-	wg.Wait()
+	// If the cleaned path starts with ".." or equals "..", it escapes the tree
+	return strings.HasPrefix(cleanTarget, "../") || cleanTarget == ".."
 }
