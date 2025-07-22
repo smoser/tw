@@ -1,16 +1,17 @@
 package main
 
 import (
-	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"chainguard.dev/apko/pkg/apk/apk"
 )
 
 const progName = "symlink-check"
@@ -275,19 +276,33 @@ func checkEscapeRoot(link, target string) error {
 }
 
 func checkPackage(pkg string, filterPaths []string, result *Result, relativeOnly bool) {
-	cmd := exec.Command("apk", "info", "-eq", pkg)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	ctx := context.Background()
 
-	if err := cmd.Run(); err != nil {
-		result.AddFail(fmt.Sprintf("package not installed or apk failed: %s (%v)", pkg, err))
+	// Create APK instance
+	a, err := apk.New(ctx)
+	if err != nil {
+		result.AddFail(fmt.Sprintf("failed to create apk client: %s (%v)", pkg, err))
 		return
 	}
 
-	cmd = exec.Command("apk", "info", "-Lq", pkg)
-	output, err := cmd.Output()
+	// Get all installed packages
+	pkgs, err := a.GetInstalled()
 	if err != nil {
-		result.AddFail(fmt.Sprintf("failed to list package files: %s (%v)", pkg, err))
+		result.AddFail(fmt.Sprintf("failed to get installed packages: %s (%v)", pkg, err))
+		return
+	}
+
+	// Find the specific package
+	var targetPkg *apk.InstalledPackage
+	for _, p := range pkgs {
+		if p.Name == pkg {
+			targetPkg = p
+			break
+		}
+	}
+
+	if targetPkg == nil {
+		result.AddFail(fmt.Sprintf("package not installed: %s", pkg))
 		return
 	}
 
@@ -305,14 +320,9 @@ func checkPackage(pkg string, filterPaths []string, result *Result, relativeOnly
 		}()
 	}
 
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		file := strings.TrimSpace(scanner.Text())
-		if file == "" {
-			continue
-		}
-
-		fullPath := "/" + file
+	// Process package files
+	for _, f := range targetPkg.Files {
+		fullPath := "/" + f.Name
 
 		if len(filterPaths) > 0 && !isInPaths(fullPath, filterPaths) {
 			continue
@@ -325,8 +335,4 @@ func checkPackage(pkg string, filterPaths []string, result *Result, relativeOnly
 
 	close(symlinks)
 	wg.Wait()
-
-	if err := scanner.Err(); err != nil {
-		result.AddFail(fmt.Sprintf("error reading package file list: %s (%v)", pkg, err))
-	}
 }
