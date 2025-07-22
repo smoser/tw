@@ -2,7 +2,6 @@ name: symlink-check
 
 needs:
   packages:
-    - apk-tools
     - symlink-check
 
 inputs:
