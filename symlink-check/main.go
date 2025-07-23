@@ -284,13 +284,13 @@ func checkSymlink(link string, result *Result, allowDangling, allowAbsolute bool
 			result.AddFail(fmt.Sprintf("cannot access target: %s -> %s (%v)", link, target, err))
 			return
 		}
-		
+
 		// Handle dangling symlinks (target doesn't exist)
 		if allowDangling {
 			result.AddPass(fmt.Sprintf("dangling symlink (allowed): %s -> %s", link, target))
 			return
 		}
-		
+
 		if target == "" {
 			result.AddFail(fmt.Sprintf("points to empty target: %s", link))
 		} else {
