@@ -200,7 +200,6 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
         - busybox
     pipeline:
       - runs: |
