@@ -45,7 +45,7 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
+        - apkq
         - busybox
         - posix-libc-utils
     pipeline:
@@ -78,7 +78,6 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
         - busybox
     pipeline:
       - runs: |
@@ -94,7 +93,7 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
+        - apkq
         - autoconf
         - build-base
         - busybox
@@ -112,7 +111,6 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
         - binutils
         - busybox
         - linux-headers
@@ -183,7 +181,7 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
+        - apkq
         - grep
         - systemd
     pipeline:
