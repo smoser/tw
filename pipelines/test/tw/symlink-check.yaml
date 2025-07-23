@@ -2,7 +2,6 @@ name: symlink-check
 
 needs:
   packages:
-    - apk-tools
     - symlink-check
 
 inputs:
@@ -12,9 +11,21 @@ inputs:
       Use "none" to disable the default package check.
     required: false
     default: "${{context.name}}"
+  allow-dangling:
+    description: |
+      Should dangling symlinks be allowed.
+    default: false
+    required: false
+  allow-absolute:
+    description: |
+      Should absolute symlinks be allowed.
+    default: false
+    required: false
 
 pipeline:
   - name: "check for broken/dangling symlinks"
     runs: |
       symlink-check \
+          --allow-absolute="${{inputs.allow-absolute}}" \
+          --allow-dangling="${{inputs.allow-dangling}}" \
           --packages="${{inputs.packages}}"
