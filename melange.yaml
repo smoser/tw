@@ -112,19 +112,24 @@ subpackages:
       no-provides: true
     dependencies:
       runtime:
-        - apk-tools
         - binutils
-        - busybox
         - linux-headers
         - posix-libc-utils
     pipeline:
       - runs: |
           make -C syspeek-tool MELANGE_CONTEXTDIR=${{targets.contextdir}} melange-install
     test:
+      environment:
+        contents:
+          packages:
+            - crane # We just need an executable with the .text section not being discarded.
       pipeline:
         - runs: |
             [ -f /usr/bin/syspeek ]
             [ -x /usr/bin/syspeek ]
+        - runs: |
+            syspeek $(command -v crane) >syscalls.txt
+            [ -s syscalls.txt ]
 
   - name: usrmerge-tool
     options:
