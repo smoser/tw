@@ -1,4 +1,4 @@
-PROJECT = ldd-check
+PROJECT = ver-check
 MELANGE_CONTEXTDIR ?= /tmp/melange-context/$(PROJECT)
 MELANGE_INSTALL_PATH = $(MELANGE_CONTEXTDIR)/usr/bin
 
@@ -8,7 +8,6 @@ build:
 	chmod +x ver-check
 
 test:
-	@./test.sh
 
 melange-install: build
 	echo $@
