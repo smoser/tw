@@ -3,7 +3,7 @@
 set -u
 
 # Test binaries that should exist on most systems
-TEST_BINS="sh busybox"
+TEST_BINS="sh bash"
 LOG="test.log"
 VER_CHECK="./ver-check"
 
@@ -37,8 +37,8 @@ cleanup() {
 test_basic_functionality() {
   fail=0
   
-  info "Testing basic version check with busybox"
-  if $VER_CHECK --bins="busybox" --version="BusyBox" --match-type="contains" >$LOG 2>&1; then
+  info "Testing basic version check with bash"
+  if $VER_CHECK --bins="bash" --version="bash" --match-type="contains" >$LOG 2>&1; then
     if file_contains "PASS" "$LOG"; then
       pass "Basic version check works"
     else
@@ -57,8 +57,8 @@ test_multiple_binaries() {
   fail=0
   
   info "Testing multiple binaries"
-  if $VER_CHECK --bins="sh busybox" --version="BusyBox" --match-type="contains" >$LOG 2>&1; then
-    # Should have at least one pass for busybox
+  if $VER_CHECK --bins="sh bash" --version="bash" --match-type="contains" >$LOG 2>&1; then
+    # Should have at least one pass for bash
     if file_contains "PASS" "$LOG"; then
       pass "Multiple binaries check works"
     else
@@ -77,7 +77,7 @@ test_nonexistent_binary() {
   fail=0
   
   info "Testing nonexistent binary"
-  if $VER_CHECK --bins="nonexistent-binary-12345" --version="anything" >$LOG 2>&1; then
+  if $VER_CHECK --bins="zyxxyz" --version="anything" >$LOG 2>&1; then
     fail "Should have failed for nonexistent binary"
     fail=1
   else
@@ -96,7 +96,7 @@ test_version_mismatch() {
   fail=0
   
   info "Testing version mismatch"
-  if $VER_CHECK --bins="busybox" --version="impossible-version-string-12345" --match-type="contains" >$LOG 2>&1; then
+  if $VER_CHECK --bins="sh" --version="qwerty" --match-type="contains" >$LOG 2>&1; then
     fail "Should have failed for version mismatch"
     fail=1
   else
@@ -115,8 +115,8 @@ test_verbose_mode() {
   fail=0
   
   info "Testing verbose mode"
-  if $VER_CHECK --bins="busybox" --version="BusyBox" --match-type="contains" --verbose="true" >$LOG 2>&1; then
-    if file_contains "> $ busybox" "$LOG"; then
+  if $VER_CHECK --bins="bash" --version="bash" --match-type="contains" --verbose="true" >$LOG 2>&1; then
+    if file_contains "> $ bash" "$LOG"; then
       pass "Verbose mode shows command execution"
     else
       fail "Verbose mode output not found"
