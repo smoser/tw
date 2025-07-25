@@ -267,18 +267,7 @@ func checkSymlink(link string, result *Result, allowDangling, allowAbsolute bool
 		return
 	}
 
-	// Handle relative-only mode
-	if filepath.IsAbs(target) {
-		if !allowAbsolute {
-			result.AddFail(fmt.Sprintf("absolute symlink: %s -> %s", link, target))
-			return
-		}
-	} else if targetEscapesTree(target, link) {
-		result.AddFail(fmt.Sprintf("relative symlink escapes root: %s -> %s", link, target))
-		return
-	}
-
-	// Check if symlink target exists and is accessible
+	// Check if symlink target exists and is accessible first
 	if _, err := os.Stat(link); err != nil {
 		if !os.IsNotExist(err) {
 			result.AddFail(fmt.Sprintf("cannot access target: %s -> %s (%v)", link, target, err))
@@ -294,8 +283,22 @@ func checkSymlink(link string, result *Result, allowDangling, allowAbsolute bool
 		if target == "" {
 			result.AddFail(fmt.Sprintf("points to empty target: %s", link))
 		} else {
-			result.AddFail(fmt.Sprintf("points to non-existent target: %s -> %s", link, target))
+			errorMsg := fmt.Sprintf("points to non-existent target: %s -> %s", link, target)
+			if filepath.IsAbs(target) && !allowAbsolute {
+				errorMsg = fmt.Sprintf("absolute symlink points to non-existent target: %s -> %s", link, target)
+			}
+			result.AddFail(errorMsg)
 		}
+		return
+	}
+
+	if filepath.IsAbs(target) {
+		if !allowAbsolute {
+			result.AddFail(fmt.Sprintf("absolute symlink: %s -> %s", link, target))
+			return
+		}
+	} else if targetEscapesTree(target, link) {
+		result.AddFail(fmt.Sprintf("relative symlink escapes root: %s -> %s", link, target))
 		return
 	}
 
