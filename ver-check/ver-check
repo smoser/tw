@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
 set +x
 set -f
 info() { echo "INFO[ver-check]:" "$@"; }
@@ -82,22 +83,29 @@ check_binary() {
     local version_flag="$3"
     local match_type="$4"
     local output exit_code
+    local ver_candidates="--version -version -V -v version"
 
     vmsg "Checking version for binary: $binary"
 
     # Check if binary exists in PATH
-    if ! command -v "$binary" >/dev/null 2>&1; then
-        fail "Binary '$binary' not found in PATH"
-        return 1
+    local fbinary=""
+    if ! fbinary=$(command -v "$binary" 2>/dev/null); then
+      fail "Binary $binary not found in PATH ($PATH)"
+      return 1
     fi
-    vmsg "Binary '$binary' found in PATH"
+    vmsg "Binary '$fbinary' found in PATH"
+
+    local binarymsg="'$binary'"
+    if [ "$binary" != "$fbinary" ]; then
+        binarymsg="'$binary [$fbinary]'"
+    fi
 
     # Auto-detect version flag if not specified
     local detected_flag="$version_flag"
     if [ "$version_flag" = "auto" ]; then
-        vmsg "Auto-detecting version flag for $binary..."
-        for flag in --version -version -V -v version; do
-            vmsg "Trying: $binary $flag"
+        vmsg "Auto-detecting version flag for $fbinary..."
+        for flag in $ver_candidates; do
+            vmsg "Trying: $fbinary $flag"
             if output=$($binary $flag 2>&1) && [ $? -eq 0 ] && [ -n "$output" ]; then
                 detected_flag="$flag"
                 vmsg "Success with: $flag"
@@ -106,7 +114,7 @@ check_binary() {
         done
 
         if [ "$detected_flag" = "auto" ]; then
-            fail "Could not auto-detect version flag for '$binary' (tried: --version, -version, -V, -v, version)"
+            fail "Could not auto-detect version flag for '$binarymsg' (tried: $ver_candidates)"
             return 1
         fi
     else
@@ -115,7 +123,7 @@ check_binary() {
         exit_code=$?
 
         if [ $exit_code -ne 0 ]; then
-            fail "'$binary $detected_flag' failed with exit code $exit_code"
+            fail "'$binarymsg $detected_flag' failed with exit code $exit_code"
             [ "$VERBOSE" = "true" ] && echo "$output" | sed 's/^/  /'
             return 1
         fi
@@ -147,12 +155,12 @@ check_binary() {
     esac
 
     if [ "$match_success" = "false" ]; then
-        fail "Version check failed for '$binary' (expected: '$expected_version', match-type: $match_type)"
+        fail "Version check failed for $binarymsg (expected: '$expected_version', match-type: $match_type)"
         [ "$VERBOSE" = "true" ] && echo "$output" | sed 's/^/  Got: /'
         return 1
     fi
 
-    pass "$binary version check (found: $expected_version)"
+    pass "$binarymsg version check (found: $expected_version)"
     return 0
 }
 
