@@ -132,8 +132,6 @@ subpackages:
             [ -s syscalls.txt ]
 
   - name: ver-check
-    options:
-      no-provides: true
     dependencies:
       runtime:
         - busybox
