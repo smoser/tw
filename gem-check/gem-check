@@ -37,11 +37,11 @@ gem_list() {
 			return 1
 		;;
 	esac
-	error "'gem list -i $gpkg' had unexpected exited $rc with output '$output'"
+	error "'gem list -i $gpkg' had unexpected exited $rc with output '$out'"
 }
 
 gem_require() {
-	local g="$1" out="" rc=""
+	local r="$1" out="" rc=""
 	out=$(ruby -e '
 #!/usr/bin/ruby
 r = ARGV[0]
@@ -54,7 +54,7 @@ rescue LoadError => error
   exit 3
 end
 exit 9
-' "$g" 2>&1)
+' "$r" 2>&1)
 	rc=$?
 	case "$rc:$out" in
 		0:pass)
