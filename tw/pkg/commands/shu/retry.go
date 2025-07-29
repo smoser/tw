@@ -19,8 +19,8 @@ type retryCfg struct {
 	Attempts int
 	Delay    time.Duration
 	Timeout  time.Duration
-	// InShell indicates whether the passed command should be run inside a shell.
-	InShell bool
+	// InBash indicates whether the passed command should be run inside Bash.
+	InBash bool
 }
 
 func retryCommand() *cobra.Command {
@@ -31,7 +31,7 @@ func retryCommand() *cobra.Command {
 		Example: `
   retry -a 5 -- curl http://localhost:8080/healthz
 
-  retry -a 5 -s -- "[ $((RANDOM % 5)) -eq 0 ] && exit 0 || exit 10"
+  retry -a 5 -b -- "[ $((RANDOM % 5)) -eq 0 ] && exit 0 || exit 10"
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cfg.Run(cmd, args)
@@ -41,7 +41,7 @@ func retryCommand() *cobra.Command {
 	cmd.Flags().IntVarP(&cfg.Attempts, "attempts", "a", 1, "Number of times to retry")
 	cmd.Flags().DurationVarP(&cfg.Delay, "delay", "d", 1*time.Second, "Delay between attempts")
 	cmd.Flags().DurationVarP(&cfg.Timeout, "timeout", "t", 5*time.Minute, "Timeout for the command")
-	cmd.Flags().BoolVarP(&cfg.InShell, "in-shell", "s", false, "Run the passed Bash inside a Bash shell")
+	cmd.Flags().BoolVarP(&cfg.InBash, "in-bash", "b", false, "Run the passed Bash inside a Bash shell")
 
 	return cmd
 }
@@ -60,7 +60,7 @@ func (c *retryCfg) Run(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	l := clog.FromContext(ctx).With("command", rawcmd)
-	l.InfoContext(ctx, "args received", "args", args, "in-shell", c.InShell)
+	l.InfoContext(ctx, "args received", "args", args, "in-bash", c.InBash)
 
 	attempt := 0
 	err := retry.Do(
@@ -68,7 +68,7 @@ func (c *retryCfg) Run(cmd *cobra.Command, args []string) error {
 			attempt++
 			l.InfoContextf(ctx, "[%d/%d] attempting command", attempt, c.Attempts)
 
-			command := newCommand(ctx, c.InShell, args)
+			command := newCommand(ctx, c.InBash, args)
 			command.Stdout = cmd.OutOrStdout()
 			command.Stderr = cmd.ErrOrStderr()
 			command.Env = os.Environ()
