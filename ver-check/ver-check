@@ -106,7 +106,7 @@ check_binary() {
         vmsg "Auto-detecting version flag for $fbinary..."
         for flag in $ver_candidates; do
             vmsg "Trying: $fbinary $flag"
-            if output=$($binary $flag 2>&1) && [ $? -eq 0 ] && [ -n "$output" ]; then
+            if output=$($binary $flag 2>&1) && [ -n "$output" ]; then
                 detected_flag="$flag"
                 vmsg "Success with: $flag"
                 break
