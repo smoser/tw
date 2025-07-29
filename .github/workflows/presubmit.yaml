@@ -34,6 +34,9 @@ jobs:
     - name: Build
       run: make build
 
+    - name: shellcheck
+      run: make shellcheck
+
     - name: Test all projects
       run: |
         make test
