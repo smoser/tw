@@ -1,5 +1,6 @@
 .PHONY: build test
 
+HASH := \#
 ARCH ?= $(shell uname -m)
 ifeq (${ARCH}, arm64)
 	ARCH = aarch64
@@ -39,6 +40,19 @@ build: $(KEY)
 test-%:
 	@echo "Running test in $*"
 	@$(MAKE) -C $* test
+
+shell_shbangre := ^$(HASH)!(/usr/bin/env[[:space:]]+|/bin/)(sh|bash)([[:space:]]+.*)?$$
+shell_scripts := $(shell git ls-files | \
+	xargs awk 'FNR == 1 && $$0 ~ sb { print FILENAME }' "sb=$(shell_shbangre)")
+
+.PHONY: list-shellfiles shellcheck
+list-shellfiles:
+	@for s in $(shell_scripts); do echo $$s; done
+shellcheck:
+	@rc=0; for s in $(shell_scripts); do \
+	    echo "shellcheck $$s"; \
+	    shellcheck "$$s" || rc=$$?; \
+	done; exit $$rc
 
 test: $(KEY) $(DIR_TESTS)
 	$(MELANGE) test --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)
