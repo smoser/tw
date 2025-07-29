@@ -1,0 +1,20 @@
+name: shellcheck
+
+on:
+  pull_request:
+    branches: [ 'main' ]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: runner / shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: shellcheck
+        uses: reviewdog/action-shellcheck@5ebd09ddbe2ebb471646ce234c6c8dd18663ca7c # v1.30.0
+        with:
+          path: "."
+          exclude: "./.git/*"
+          check_all_files_with_shebangs: "true"
