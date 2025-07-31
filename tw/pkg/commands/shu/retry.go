@@ -19,14 +19,20 @@ type retryCfg struct {
 	Attempts int
 	Delay    time.Duration
 	Timeout  time.Duration
+	// InBash indicates whether the passed command should be run inside Bash.
+	InBash bool
 }
 
 func retryCommand() *cobra.Command {
 	cfg := &retryCfg{}
 
 	cmd := &cobra.Command{
-		Use:     "retry -- <command>",
-		Example: ``,
+		Use: "retry -- <command>",
+		Example: `
+  retry -a 5 -- curl http://localhost:8080/healthz
+
+  retry -a 5 -b -- "[ $((RANDOM % 5)) -eq 0 ] && exit 0 || exit 10"
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cfg.Run(cmd, args)
 		},
@@ -35,6 +41,7 @@ func retryCommand() *cobra.Command {
 	cmd.Flags().IntVarP(&cfg.Attempts, "attempts", "a", 1, "Number of times to retry")
 	cmd.Flags().DurationVarP(&cfg.Delay, "delay", "d", 1*time.Second, "Delay between attempts")
 	cmd.Flags().DurationVarP(&cfg.Timeout, "timeout", "t", 5*time.Minute, "Timeout for the command")
+	cmd.Flags().BoolVarP(&cfg.InBash, "in-bash", "b", false, "Run the passed Bash inside a Bash shell")
 
 	return cmd
 }
@@ -53,7 +60,7 @@ func (c *retryCfg) Run(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	l := clog.FromContext(ctx).With("command", rawcmd)
-	l.InfoContext(ctx, "args received", "args", args)
+	l.InfoContext(ctx, "args received", "args", args, "in-bash", c.InBash)
 
 	attempt := 0
 	err := retry.Do(
@@ -61,7 +68,7 @@ func (c *retryCfg) Run(cmd *cobra.Command, args []string) error {
 			attempt++
 			l.InfoContextf(ctx, "[%d/%d] attempting command", attempt, c.Attempts)
 
-			command := exec.CommandContext(ctx, args[0], args[1:]...)
+			command := newCommand(ctx, c.InBash, args)
 			command.Stdout = cmd.OutOrStdout()
 			command.Stderr = cmd.ErrOrStderr()
 			command.Env = os.Environ()
@@ -81,4 +88,19 @@ func (c *retryCfg) Run(cmd *cobra.Command, args []string) error {
 	)
 
 	return err
+}
+
+func newCommand(ctx context.Context, inShell bool, args []string) *exec.Cmd {
+	var c *exec.Cmd
+	if inShell {
+		shellArgs := make([]string, 0, len(args)+1)
+		shellArgs = append(shellArgs, "-c")
+		shellArgs = append(shellArgs, args...)
+
+		c = exec.CommandContext(ctx, "/bin/bash", shellArgs...)
+	} else {
+		c = exec.CommandContext(ctx, args[0], args[1:]...)
+	}
+
+	return c
 }
