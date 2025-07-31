@@ -1,0 +1,5 @@
+# https://github.com/koalaman/shellcheck/issues/3218
+external-sources=false
+disable=SC1091 # Not following source / '.'
+disable=SC3043 # In POSIX sh, local is undefined.
+disable=SC2162 # read without -r will mangle backslashes.

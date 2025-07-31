@@ -109,8 +109,8 @@ test_header() {
 	local configure_opts="$3"
 	local rc=1
 	d=$(mktemp -d $tmpd/XXXXXXXX)
-	cd $d
-	case $lang in
+	cd "$d" || return
+	case "$lang" in
 		c)
 			gen_c_ac "$header"
 		;;
@@ -163,7 +163,7 @@ for f in "$@"; do
 	success=false
 	# File paths may be absolute, or relative to /usr/include
 	# Strip off leading optional usr/include/ or /usr/include/
-	h=$(printf "$f" | sed -e "s:^[/]*usr/include/::")
+	h=$(printf "%s\n" "$f" | sed -e "s:^[/]*usr/include/::")
 	for lang in "c" "cpp"; do
 		if test_header "$lang" "$h" "$configure_opts"; then
 			pass "header test [$h]"

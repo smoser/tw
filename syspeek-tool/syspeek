@@ -5,7 +5,8 @@ set -euo pipefail
 DEBUG="${DEBUG:-false}"
 debug_log="debug.log"
 objdump=$(command -v objdump)
-ARCH="$($objdump -f ${1} | grep architecture | cut -d ':' -f3 | cut -d ',' -f1)"
+ARCH=$("$objdump" -f "$1" | grep architecture |
+    cut -d ':' -f3 | cut -d ',' -f1)
 objdump_args="--disassemble --decompress --section .text -M ${ARCH} --source --all-headers --wide"
 
 # TODO: this syscall able is only for the host architecture.
@@ -15,14 +16,14 @@ syscall_table=/usr/include/asm/unistd_64.h
 syscall_regex="^(syscall|sysenter)"
 
 # This identifies an op on the accumulator. We look for the syscall identifier.
-rax_mov_regex="^mov.+0x.+,%(r|e)ax$" 
+rax_mov_regex="^mov.+0x.+,%(r|e)ax$"
 # We look at mov to other general purpose registers for the syscall parameters.
 params_mov_regex="^mov .+*,%((r|e)bx|(r|e)cx|(r|e)dx|(r|e)si|(r|e)di|(r|e)bp)$"
 
 disassemble() {
 	# Get only assembly opcode column from objdump.
 	awk -F'\t' '{print $3}' \
-		<($objdump $objdump_args "${1}")
+		<($objdump "$objdump_args" "$1")
 }
 
 # Get the immediate rax set op before syscalls.
@@ -38,7 +39,7 @@ get_syscall_num() {
 		if (\$0 ~ /${syscall_regex}/) {
 			    found = 1
 		}
-	}" <(disassemble $1) | 
+	}" <(disassemble "$1") |
 		awk -F' ' '{print $2}' |
 		cut -d ',' -f1
 }
@@ -60,19 +61,20 @@ get_syscall_params() {
 		if (\$0 ~ /${syscall_regex}/) {
 			    found = 1
 		}
-	}" <(disassemble $1)
+	}" <(disassemble "$1")
 }
 
 get_syscalls() {
 	# TODO: Literal values (e.g. mov $0xe4,%rax)
 	# Get also register-relative values (e.g. mov 0x8(%rsp),%rax)
-	local literal_args=$(get_syscall_num $1 | grep -F "\$")
+	local literal_args=""
+	literal_args=$(get_syscall_num "$1" | grep -F "\$")
 
 	for num in $literal_args; do
-		id=$(hextodec $num)
-		name=$(get_syscall_name $id);
+		id=$(hextodec "$num")
+		name=$(get_syscall_name "$id");
 		if [ -n "${name}" ]; then
-			echo $name
+			echo "$name"
 		else
 			echo "syscall $id not found"
 		fi
@@ -84,8 +86,9 @@ get_syscall_name() {
 		echo ""
 		return
 	fi
-	local table=$(grep -E "define __NR_.+ ${1}$" $syscall_table)
-	awk '{print $2}' <(echo ${table//__NR_})
+	local table=""
+	table=$(grep -E "define __NR_.+ ${1}$" "$syscall_table")
+	awk '{print $2}' <(echo "${table//__NR_}")
 }
 
 hextodec() {
@@ -99,12 +102,14 @@ pretty_echo() {
 main() {
 	if [ "${DEBUG}" == "true" ]; then
 		pretty_echo "Generating debug information. Reference debug.txt for debug purposes."
-		echo "get_syscall_num" >$debug_log
-		get_syscall_num $1 >>$debug_log
-		echo "get_syscall_params" >>$debug_log
-		get_syscall_params $1 >>$debug_log
+		{
+		echo "get_syscall_num"
+		get_syscall_num "$1"
+		echo "get_syscall_params"
+		get_syscall_params "$1"
+		} >"$debug_log"
 	fi
-	get_syscalls $1
+	get_syscalls "$1"
 }
 
-main $@
+main "$@"

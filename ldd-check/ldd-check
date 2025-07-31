@@ -211,10 +211,12 @@ test_files_in() {
 
 fails=0
 passes=0
+# shellcheck disable=SC2086
 set -- $files
 for f in "$@"; do
   check_file "$f" true
 done
+# shellcheck disable=SC2086
 set -- $packages
 for pkg in "$@"; do
   test_files_in "$pkg"

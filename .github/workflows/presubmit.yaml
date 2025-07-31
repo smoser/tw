@@ -27,8 +27,16 @@ jobs:
         go-version-file: './go.work'
         cache-dependency-path: '**/*.sum'
 
+    - name: Setup shellcheck
+      uses: ./.github/actions/shellcheck
+      with:
+        version: v0.10.0
+
     - name: Build
       run: make build
+
+    - name: shellcheck
+      run: make shellcheck
 
     - name: Test all projects
       run: |
