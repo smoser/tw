@@ -1,5 +1,6 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
+# shellcheck disable=SC3043
+TEMP_D=""
 set -f
 
 PROG="header-check"
@@ -13,19 +14,23 @@ error() {
 	exit 1
 }
 
-fail() {
-	echo "FAIL[$PROG]:" "$@"
+# shellcheck disable=SC2317
+cleanup() {
+	[ -n "$TEMP_D" ] || return 0
+	rm -Rf "$TEMP_D"
+}
+
+fail_header() {
+	local src="$1"
+	shift
+	echo "FAIL[$PROG]:" "failure testing header" "[$src]"
+	FAILS_LIST="${FAILS_LIST:+${FAILS_LIST} }$src"
 	FAILS=$((FAILS+1))
 }
 
 pass() {
 	echo "PASS[$PROG]:" "$@"
 	PASSES=$((PASSES+1))
-}
-
-cleanup() {
-	[ -n "$tmpd" -o -z "$tmpd" ] && return 0
-	rm -Rf "$tmpd"
 }
 
 configure_opts=""
@@ -79,7 +84,7 @@ while [ $# -ne 0 ]; do
 			VERBOSE=$2
 			shift
 		;;
-        	--*)
+		--*)
 			error "Unknown argument '$1'"
 		;;
 	esac
@@ -100,17 +105,18 @@ esac
 
 [ -n "${files}${packages}" ] || error "No files or packages specified"
 
-tmpd=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
+TEMP_D=$(mktemp -d) || error "ERROR: failed to create tmpdir"
 trap cleanup EXIT
 
 test_header() {
 	local lang="$1"
 	local header="$2"
 	local configure_opts="$3"
-	local rc=1
-	d=$(mktemp -d $tmpd/XXXXXXXX)
-	cd "$d" || return
-	case "$lang" in
+	local rc=1 d=""
+	d=$(mktemp -d "$TEMP_D/XXXXXXXX") ||
+		error "failed to create tmpdir"
+	cd "$d" || error "failed cd to tmpdir"
+	case $lang in
 		c)
 			gen_c_ac "$header"
 		;;
@@ -123,10 +129,11 @@ test_header() {
 	esac
 	cat configure.ac
 	autoconf
+	# shellcheck disable=SC2086
 	./configure $configure_opts && rc=0 || rc=1
 	cat config.log
 	cd ..
-	rm -rf $d
+	rm -rf "$d"
 	return $rc
 }
 
@@ -157,7 +164,9 @@ EOF
 }
 
 FAILS=0
+FAILS_LIST=""
 PASSES=0
+# shellcheck disable=SC2086
 set -- $files
 for f in "$@"; do
 	success=false
@@ -174,9 +183,11 @@ for f in "$@"; do
 		fi
 	done
 	if [ "$success" = "false" ]; then
-		fail "Failure testing header [$h]"
+		fail_header "$f"
 	fi
 done
+
+# shellcheck disable=SC2086
 set -- $packages
 for pkg in "$@"; do
 	for f in $(apk info -qL "$pkg" | grep "^usr/include/.*\.h[p]*$" | sed -e "s:^usr/include/::"); do
@@ -191,13 +202,17 @@ for pkg in "$@"; do
 			fi
 		done
 		if [ "$success" = "false" ]; then
-			fail "Failure testing header [$f]"
+			fail_header "$f"
 		fi
 	done
 done
-info "Tested [packages='$packages', configure-opts='$configure_opts'] with [$PROG].  [$PASSES/$((PASSES+FAILS))] passed."
+
+[ $FAILS -eq 0 ] && failmsg="" || failmsg="$FAILS fails."
+info "Tested [packages='$packages', configure-opts='$configure_opts']." \
+  "$PASSES/$((PASSES+FAILS)) passed.${failmsg:+ ${failmsg}}"
 if [ "$FAILS" = "0" ]; then
 	exit 0
 else
+	echo "FATAL[$PROG]: $FAILS failures: ${FAILS_LIST}"
 	exit 1
 fi
