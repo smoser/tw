@@ -1,12 +1,15 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2166,SC3043,SC2162,SC2086
+TEMP_D=""
 set +x
 set -f
 info() { echo "INFO[ldd-check]:" "$@"; }
 error() { echo "ERROR[ldd-check]:" "$@"; exit 1; }
 fail() { echo "FAIL[ldd-check]:" "$@"; fails=$((fails+1)); }
 pass() { echo "PASS[ldd-check]:" "$@"; passes=$((passes+1)); }
-cleanup() { [ -n "$tmpd" -o -z "$tmpd" ] && return 0; rm -Rf "$tmpd"; }
+cleanup() {
+    [ -n "$TEMP_D" ] || return 0;
+    rm -Rf "$TEMP_D";
+}
 
 show_help() {
   cat << EOF
@@ -84,7 +87,7 @@ esac
 
 [ -n "${files}${packages}" ] || show_help
 
-tmpd=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
+TEMP_D=$(mktemp -d) || fail "ERROR: failed to create tmpdir"
 trap cleanup EXIT
 
 export LANG=C
@@ -151,7 +154,7 @@ check_output() {
 
 check_file() {
   local f="$1" insist_dyn="$2" rc="0"
-  local outf="$tmpd/ldd.stdout" errf="$tmpd/ldd.sterr"
+  local outf="$TEMP_D/ldd.stdout" errf="$TEMP_D/ldd.sterr"
   local ldpath="" dirldpath=""
 
   if is_excluded "$f"; then
@@ -202,11 +205,11 @@ test_files_in() {
   echo "[ldd-check] Testing binaries in package $pkg"
   apk info -eq "$pkg" > /dev/null ||
     error "Package $pkg is not installed";
-  apk info -Lq "$pkg" > "$tmpd/$pkg.list"
+  apk info -Lq "$pkg" > "$TEMP_D/$pkg.list"
   while read f; do
     [ -n "$f" ] || continue
     check_file "/$f" false
-  done < "$tmpd/$pkg.list"
+  done < "$TEMP_D/$pkg.list"
 }
 
 fails=0
