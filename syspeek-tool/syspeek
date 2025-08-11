@@ -7,7 +7,7 @@ debug_log="debug.log"
 objdump=$(command -v objdump)
 ARCH=$("$objdump" -f "$1" | grep architecture |
     cut -d ':' -f3 | cut -d ',' -f1)
-objdump_args="--disassemble --decompress --section .text -M ${ARCH} --source --all-headers --wide"
+objdump_args=( --disassemble --decompress --section .text -M "${ARCH}" --source --all-headers --wide )
 
 # TODO: this syscall able is only for the host architecture.
 # get the syscall table for the executable's architecture.
@@ -23,7 +23,7 @@ params_mov_regex="^mov .+*,%((r|e)bx|(r|e)cx|(r|e)dx|(r|e)si|(r|e)di|(r|e)bp)$"
 disassemble() {
 	# Get only assembly opcode column from objdump.
 	awk -F'\t' '{print $3}' \
-		<($objdump "$objdump_args" "$1")
+		<($objdump "${objdump_args[@]}" "$1")
 }
 
 # Get the immediate rax set op before syscalls.
