@@ -1,6 +1,8 @@
-name: Presubmit
+name: c-i
 
 on:
+  push:
+    branches: [ 'main' ]
   pull_request:
     branches: [ 'main' ]
 
