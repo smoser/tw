@@ -18,18 +18,18 @@ OUT_DIR ?= $(shell pwd)/packages
 WOLFI_REPO ?= https://packages.wolfi.dev/os
 WOLFI_KEY ?= https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
 
-MELANGE_OPTS += --arch ${ARCH}
-MELANGE_OPTS += --keyring-append ${KEY}.pub
-MELANGE_OPTS += --repository-append ${REPO}
-MELANGE_OPTS += -k ${WOLFI_KEY}
-MELANGE_OPTS += -r ${WOLFI_REPO}
-MELANGE_OPTS += --source-dir ./
+MELANGE_OPTS += --arch=${ARCH}
+MELANGE_OPTS += --keyring-append=${KEY}.pub
+MELANGE_OPTS += --repository-append=${REPO}
+MELANGE_OPTS += --keyring-append=${WOLFI_KEY}
+MELANGE_OPTS += --repository-append=${WOLFI_REPO}
+MELANGE_OPTS += --source-dir=./
 
-MELANGE_BUILD_OPTS += --signing-key ${KEY}
-MELANGE_BUILD_OPTS += --cache-dir $(HOME)/go/pkg/mod
-MELANGE_BUILD_OPTS += --out-dir ${OUT_DIR}
+MELANGE_BUILD_OPTS += --signing-key=${KEY}
+MELANGE_BUILD_OPTS += --cache-dir=$(HOME)/go/pkg/mod
+MELANGE_BUILD_OPTS += --out-dir=${OUT_DIR}
 
-MELANGE_TEST_OPTS += --test-package-append wolfi-base
+MELANGE_TEST_OPTS += --test-package-append=wolfi-base
 
 ${KEY}:
 	${MELANGE} keygen ${KEY}
@@ -37,7 +37,9 @@ ${KEY}:
 build: $(KEY)
 	$(MELANGE) build --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_BUILD_OPTS)
 
-test-%:
+test: $(DIR_TESTS)
+.PHONY: $(DIR_TESTS)
+$(DIR_TESTS): test-%:
 	@echo "Running test in $*"
 	@$(MAKE) -C $* test
 
@@ -54,5 +56,5 @@ shellcheck:
 	    shellcheck "$$s" || rc=$$?; \
 	done; exit $$rc
 
-test: $(KEY) $(DIR_TESTS)
-	$(MELANGE) test --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)
+test-melange: $(KEY)
+	$(MELANGE) test --runner=docker melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)

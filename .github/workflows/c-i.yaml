@@ -1,6 +1,8 @@
-name: Presubmit
+name: c-i
 
 on:
+  push:
+    branches: [ 'main' ]
   pull_request:
     branches: [ 'main' ]
 
@@ -32,12 +34,16 @@ jobs:
       with:
         version: v0.10.0
 
-    - name: Build
-      run: make build
-
     - name: shellcheck
       run: make shellcheck
+
+    - name: Build
+      run: make build
 
     - name: Test all projects
       run: |
         make test
+
+    - name: Test in melange
+      run: |
+        make test-melange
