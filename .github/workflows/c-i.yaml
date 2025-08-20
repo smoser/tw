@@ -31,8 +31,8 @@ jobs:
         uses: ./.github/actions/shellcheck
         with:
           version: v0.10.0
-      - name: shellcheck
-        run: make shellcheck
+      - name: lint
+        run: make lint
       - name: Build
         run: make build
       - name: Test all projects
