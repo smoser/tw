@@ -1,5 +1,6 @@
 .PHONY: build test
 
+TOP_D := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 HASH := \#
 ARCH ?= $(shell uname -m)
 ifeq (${ARCH}, arm64)
@@ -12,8 +13,12 @@ DIR_TESTS := $(addprefix test-, $(PROJECT_DIRS))
 
 MELANGE ?= $(shell which melange)
 KEY ?= local-melange.rsa
-REPO ?= $(shell pwd)/packages
-OUT_DIR ?= $(shell pwd)/packages
+REPO ?= $(TOP_D)/packages
+OUT_DIR ?= $(TOP_D)/packages
+
+BIN_TOOLS_D = $(TOP_D)/tools/bin
+
+YAM_FILES := $(shell find * .github -name "*.yaml" -type f)
 
 WOLFI_REPO ?= https://packages.wolfi.dev/os
 WOLFI_KEY ?= https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
@@ -58,3 +63,19 @@ shellcheck:
 
 test-melange: $(KEY)
 	$(MELANGE) test --runner=docker melange.yaml $(MELANGE_OPTS) $(MELANGE_TEST_OPTS)
+
+.PHONY: lint
+lint: yam-check shellcheck
+
+.PHONY: yam-check yam
+# yam-check shows changes it would make and exits 0 on no changes.
+yam-check: $(BIN_TOOLS_D)/yam
+	$(BIN_TOOLS_D)/yam --lint $(YAM_FILES)
+
+# yam applies changes to the files you cannot trust its exit code
+yam: $(BIN_TOOLS_D)/yam
+	$(BIN_TOOLS_D)/yam $(YAM_FILES)
+
+$(BIN_TOOLS_D)/yam:
+	@mkdir -p $(BIN_TOOLS_D)
+	GOBIN=$(BIN_TOOLS_D) go install github.com/chainguard-dev/yam@v0.2.29
