@@ -40,7 +40,7 @@ ${KEY}:
 	${MELANGE} keygen ${KEY}
 
 build: $(KEY)
-	$(MELANGE) build --runner docker melange.yaml $(MELANGE_OPTS) $(MELANGE_BUILD_OPTS)
+	$(MELANGE) build --runner=docker melange.yaml $(MELANGE_OPTS) $(MELANGE_BUILD_OPTS)
 
 test: $(DIR_TESTS)
 .PHONY: $(DIR_TESTS)

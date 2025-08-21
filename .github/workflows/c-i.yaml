@@ -33,11 +33,11 @@ jobs:
           version: v0.10.0
       - name: lint
         run: make lint
-      - name: Build
-        run: make build
       - name: Test all projects
         run: |
           make test
+      - name: Build
+        run: make build
       - name: Test in melange
         run: |
           make test-melange
