@@ -23,6 +23,7 @@ YAM_FILES := $(shell find * .github -name "*.yaml" -type f)
 WOLFI_REPO ?= https://packages.wolfi.dev/os
 WOLFI_KEY ?= https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
 
+MELANGE_OPTS += --debug
 MELANGE_OPTS += --arch=${ARCH}
 MELANGE_OPTS += --keyring-append=${KEY}.pub
 MELANGE_OPTS += --repository-append=${REPO}
