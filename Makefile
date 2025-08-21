@@ -32,7 +32,6 @@ MELANGE_OPTS += --repository-append=${WOLFI_REPO}
 MELANGE_OPTS += --source-dir=./
 
 MELANGE_BUILD_OPTS += --signing-key=${KEY}
-MELANGE_BUILD_OPTS += --cache-dir=$(HOME)/go/pkg/mod
 MELANGE_BUILD_OPTS += --out-dir=${OUT_DIR}
 
 MELANGE_TEST_OPTS += --test-package-append=wolfi-base
